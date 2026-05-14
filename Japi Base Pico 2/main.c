@@ -276,30 +276,110 @@ static void page_showcase(void) {
     for (int c = 0; c < VGA_COLS; c++) vga_set_char(63, c, ' ', VGA_BLACK, VGA_WHITE);
     vga_print(63, 2, "Press any key for API quick reference...", VGA_BLACK, VGA_WHITE);
 
-    // --- Sound demo: C major arpeggio ---
+    // --- Sound demo: Fur Elise ---
     japi_sound_wave(0, JAPI_WAVE_SINE);
-    japi_sound_envelope(0, 10, 100, 180, 200);
-    japi_sound_volume(0, 200);
-    japi_sound_pan(0, 100);
+    japi_sound_envelope(0, 5, 80, 160, 250);
+    japi_sound_volume(0, 220);
+    japi_sound_pan(0, 118);
 
     japi_sound_wave(1, JAPI_WAVE_TRIANGLE);
-    japi_sound_envelope(1, 20, 150, 140, 300);
-    japi_sound_volume(1, 160);
-    japi_sound_pan(1, 156);
+    japi_sound_envelope(1, 10, 200, 100, 400);
+    japi_sound_volume(1, 120);
+    japi_sound_pan(1, 138);
 
-    japi_sound_wave(2, JAPI_WAVE_SINE);
-    japi_sound_envelope(2, 30, 200, 120, 400);
-    japi_sound_volume(2, 140);
-    japi_sound_pan(2, 128);
-
-    uint16_t arpeggio[] = { 262, 330, 392, 523, 392, 330 };
-    int arp_idx = 0;
-    int arp_timer = 0;
+    static const uint8_t fe_note[] = {
+        // --- A section ---
+        NOTE_E5, NOTE_DS5, NOTE_E5, NOTE_DS5, NOTE_E5, NOTE_B4, NOTE_D5, NOTE_C5,
+        NOTE_A4, NOTE_REST, NOTE_C4, NOTE_E4, NOTE_A4,
+        NOTE_B4, NOTE_REST, NOTE_E4, NOTE_GS4, NOTE_B4,
+        NOTE_C5, NOTE_REST, NOTE_E4,
+        NOTE_E5, NOTE_DS5, NOTE_E5, NOTE_DS5, NOTE_E5, NOTE_B4, NOTE_D5, NOTE_C5,
+        NOTE_A4, NOTE_REST, NOTE_C4, NOTE_E4, NOTE_A4,
+        NOTE_B4, NOTE_REST, NOTE_E4, NOTE_C5, NOTE_B4,
+        NOTE_A4, NOTE_REST, NOTE_REST,
+        // --- B section ---
+        NOTE_REST, NOTE_B4, NOTE_C5,
+        NOTE_D5, NOTE_REST, NOTE_G4, NOTE_F5, NOTE_E5,
+        NOTE_D5, NOTE_REST, NOTE_F4, NOTE_E5, NOTE_D5,
+        NOTE_C5, NOTE_REST, NOTE_E4, NOTE_D5, NOTE_C5,
+        NOTE_B4, NOTE_REST, NOTE_REST, NOTE_E4, NOTE_E5,
+        NOTE_REST, NOTE_REST, NOTE_DS5,
+        // --- A section (da capo) ---
+        NOTE_E5, NOTE_DS5, NOTE_E5, NOTE_DS5, NOTE_E5, NOTE_B4, NOTE_D5, NOTE_C5,
+        NOTE_A4, NOTE_REST, NOTE_C4, NOTE_E4, NOTE_A4,
+        NOTE_B4, NOTE_REST, NOTE_E4, NOTE_GS4, NOTE_B4,
+        NOTE_C5, NOTE_REST, NOTE_E4,
+        NOTE_E5, NOTE_DS5, NOTE_E5, NOTE_DS5, NOTE_E5, NOTE_B4, NOTE_D5, NOTE_C5,
+        NOTE_A4, NOTE_REST, NOTE_C4, NOTE_E4, NOTE_A4,
+        NOTE_B4, NOTE_REST, NOTE_E4, NOTE_C5, NOTE_B4,
+        NOTE_A4, NOTE_REST, NOTE_REST, NOTE_REST,
+    };
+    static const uint16_t fe_dur[] = {
+        // --- A section ---
+        154, 154, 154, 154, 154, 154, 154, 154,
+        308, 154, 154, 154, 154,
+        308, 154, 154, 154, 154,
+        308, 154, 154,
+        154, 154, 154, 154, 154, 154, 154, 154,
+        308, 154, 154, 154, 154,
+        308, 154, 154, 154, 154,
+        308, 154, 154,
+        // --- B section ---
+        154, 154, 154,
+        308, 154, 154, 154, 154,
+        308, 154, 154, 154, 154,
+        308, 154, 154, 154, 154,
+        308, 154, 154, 154, 154,
+        154, 154, 154,
+        // --- A section (da capo) ---
+        154, 154, 154, 154, 154, 154, 154, 154,
+        308, 154, 154, 154, 154,
+        308, 154, 154, 154, 154,
+        308, 154, 154,
+        154, 154, 154, 154, 154, 154, 154, 154,
+        308, 154, 154, 154, 154,
+        308, 154, 154, 154, 154,
+        462, 308, 308, 308,
+    };
+    static const uint8_t fe_bass[] = {
+        // --- A section ---
+        NOTE_REST, NOTE_REST, NOTE_REST, NOTE_REST, NOTE_REST, NOTE_REST, NOTE_REST, NOTE_REST,
+        NOTE_A2, NOTE_REST, NOTE_REST, NOTE_REST, NOTE_REST,
+        NOTE_E2, NOTE_REST, NOTE_REST, NOTE_REST, NOTE_REST,
+        NOTE_A2, NOTE_REST, NOTE_REST,
+        NOTE_REST, NOTE_REST, NOTE_REST, NOTE_REST, NOTE_REST, NOTE_REST, NOTE_REST, NOTE_REST,
+        NOTE_A2, NOTE_REST, NOTE_REST, NOTE_REST, NOTE_REST,
+        NOTE_E2, NOTE_REST, NOTE_REST, NOTE_REST, NOTE_REST,
+        NOTE_A2, NOTE_REST, NOTE_REST,
+        // --- B section ---
+        NOTE_REST, NOTE_REST, NOTE_REST,
+        NOTE_C3, NOTE_REST, NOTE_REST, NOTE_REST, NOTE_REST,
+        NOTE_G2, NOTE_REST, NOTE_REST, NOTE_REST, NOTE_REST,
+        NOTE_A2, NOTE_REST, NOTE_REST, NOTE_REST, NOTE_REST,
+        NOTE_E2, NOTE_REST, NOTE_REST, NOTE_REST, NOTE_REST,
+        NOTE_REST, NOTE_REST, NOTE_REST,
+        // --- A section (da capo) ---
+        NOTE_REST, NOTE_REST, NOTE_REST, NOTE_REST, NOTE_REST, NOTE_REST, NOTE_REST, NOTE_REST,
+        NOTE_A2, NOTE_REST, NOTE_REST, NOTE_REST, NOTE_REST,
+        NOTE_E2, NOTE_REST, NOTE_REST, NOTE_REST, NOTE_REST,
+        NOTE_A2, NOTE_REST, NOTE_REST,
+        NOTE_REST, NOTE_REST, NOTE_REST, NOTE_REST, NOTE_REST, NOTE_REST, NOTE_REST, NOTE_REST,
+        NOTE_A2, NOTE_REST, NOTE_REST, NOTE_REST, NOTE_REST,
+        NOTE_E2, NOTE_REST, NOTE_REST, NOTE_REST, NOTE_REST,
+        NOTE_A2, NOTE_REST, NOTE_REST, NOTE_REST,
+    };
+    #define FE_LEN (sizeof(fe_note))
+    int fe_idx = 0;
+    int fe_timer = 0;
 
     // --- Block animation on row 61 ---
     {
         for (int col = 1; col < VGA_COLS - 1; col++)
             vga_set_char(61, col, CH_HZ, VGA_CYAN, BG);
+
+        japi_play_ch(0, fe_note[0], fe_dur[0]);
+        if (fe_bass[0] != NOTE_REST) japi_play_ch(1, fe_bass[0], fe_dur[0]);
+        fe_timer = fe_dur[0];
 
         int pos = 1;
         while (!japi_has_char()) {
@@ -308,16 +388,14 @@ static void page_showcase(void) {
             if (pos >= VGA_COLS - 1) pos = 1;
             vga_set_char(61, pos, CH_FULL, VGA_CYAN, BG);
 
-            arp_timer++;
-            if (arp_timer >= 8) {
-                arp_timer = 0;
-                japi_sound_freq(0, arpeggio[arp_idx]);
-                japi_sound_note_on(0);
-                japi_sound_freq(1, arpeggio[arp_idx] / 2);
-                japi_sound_note_on(1);
-                japi_sound_freq(2, arpeggio[(arp_idx + 2) % 6]);
-                japi_sound_note_on(2);
-                arp_idx = (arp_idx + 1) % 6;
+            fe_timer -= 40;
+            if (fe_timer <= 0) {
+                fe_idx++;
+                if (fe_idx >= (int)FE_LEN) fe_idx = 0;
+                japi_play_ch(0, fe_note[fe_idx], fe_dur[fe_idx]);
+                if (fe_bass[fe_idx] != NOTE_REST)
+                    japi_play_ch(1, fe_bass[fe_idx], fe_dur[fe_idx] + 200);
+                fe_timer = fe_dur[fe_idx];
             }
 
             sleep_ms(40);

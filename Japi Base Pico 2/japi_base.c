@@ -141,21 +141,27 @@ typedef struct {
     uint8_t     volume;
     uint8_t     pan;
     audio_env_t env;
+    uint32_t    auto_off;
 } audio_melody_t;
 
-typedef struct {
-    uint8_t     volume;
-    uint8_t     pan;
-    audio_env_t env;
-    audio_env_t tone_env;
-    uint32_t    tone_phase;
-    uint32_t    tone_step;
-    bool        use_tone;
-    uint16_t    lfsr;
-} audio_drum_t;
-
 static audio_melody_t melody_ch[JAPI_SOUND_CHANNELS];
-static audio_drum_t   drum_ch[JAPI_DRUM_CHANNELS];
+
+static const uint16_t midi_to_hz[] = {
+       0,    0,    0,    0,    0,    0,    0,    0,
+       0,    0,    0,    0,    0,    0,    0,    0,
+       0,    0,    0,    0,    0,    0,    0,    0,
+      33,   35,   37,   39,   41,   44,   46,   49,
+      52,   55,   58,   62,   65,   69,   73,   78,
+      82,   87,   93,   98,  104,  110,  117,  123,
+     131,  139,  147,  156,  165,  175,  185,  196,
+     208,  220,  233,  247,  262,  277,  294,  311,
+     330,  349,  370,  392,  415,  440,  466,  494,
+     523,  554,  587,  622,  659,  698,  740,  784,
+     831,  880,  932,  988, 1047, 1109, 1175, 1245,
+    1319, 1397, 1480, 1568, 1661, 1760, 1865, 1976,
+    2093, 2217, 2349, 2489, 2637, 2794, 2960, 3136,
+    3322, 3520, 3729, 3951,
+};
 
 typedef struct { uint16_t left; uint16_t right; } audio_sample_t;
 static audio_sample_t audio_buf[2][AUDIO_SAMPLES];
@@ -195,42 +201,20 @@ static inline uint16_t __not_in_flash_func(env_tick)(audio_env_t *e) {
     return e->level;
 }
 
-static inline int16_t __not_in_flash_func(noise_tick)(uint16_t *lfsr) {
-    uint16_t bit = *lfsr & 1;
-    *lfsr >>= 1;
-    if (bit) *lfsr ^= 0xB400u;
-    return (int16_t)(((int32_t)*lfsr * AUDIO_AMPLITUDE * 2) >> 16) - AUDIO_AMPLITUDE;
-}
-
 static inline audio_sample_t __not_in_flash_func(synth_render_sample)(void) {
     int32_t left = 0, right = 0;
 
     for (int i = 0; i < JAPI_SOUND_CHANNELS; i++) {
         audio_melody_t *ch = &melody_ch[i];
         if (ch->env.phase == ENV_IDLE) continue;
+        if (ch->auto_off > 0) {
+            ch->auto_off--;
+            if (ch->auto_off == 0) ch->env.phase = ENV_RELEASE;
+        }
         ch->phase += ch->step;
         int16_t wave = ch->wavetable[(ch->phase >> 24) & 0xFF];
         uint16_t env = env_tick(&ch->env);
         int32_t val = ((int32_t)wave * (env >> 8) * ch->volume) >> 16;
-        left  += (val * (255 - ch->pan)) >> 8;
-        right += (val * ch->pan) >> 8;
-    }
-
-    for (int i = 0; i < JAPI_DRUM_CHANNELS; i++) {
-        audio_drum_t *ch = &drum_ch[i];
-        if (ch->env.phase == ENV_IDLE && ch->tone_env.phase == ENV_IDLE) continue;
-        int32_t val = 0;
-        if (ch->env.phase != ENV_IDLE) {
-            uint16_t env = env_tick(&ch->env);
-            int16_t n = noise_tick(&ch->lfsr);
-            val += ((int32_t)n * (env >> 8) * ch->volume) >> 16;
-        }
-        if (ch->use_tone && ch->tone_env.phase != ENV_IDLE) {
-            ch->tone_phase += ch->tone_step;
-            int16_t wave = wave_sine[(ch->tone_phase >> 24) & 0xFF];
-            uint16_t env = env_tick(&ch->tone_env);
-            val += ((int32_t)wave * (env >> 8) * ch->volume) >> 16;
-        }
         left  += (val * (255 - ch->pan)) >> 8;
         right += (val * ch->pan) >> 8;
     }
@@ -267,14 +251,7 @@ static void audio_init(void) {
         melody_ch[i].env.decay_rate   = audio_ms_to_rate(100);
         melody_ch[i].env.sustain_level = 45000;
         melody_ch[i].env.release_rate = audio_ms_to_rate(200);
-    }
-
-    for (int i = 0; i < JAPI_DRUM_CHANNELS; i++) {
-        drum_ch[i].volume = 180;
-        drum_ch[i].pan = 128;
-        drum_ch[i].env.phase = ENV_IDLE;
-        drum_ch[i].tone_env.phase = ENV_IDLE;
-        drum_ch[i].lfsr = 0xACE1u;
+        melody_ch[i].auto_off = 0;
     }
 
     for (int i = 0; i < AUDIO_SAMPLES; i++) {
@@ -590,60 +567,41 @@ void japi_sound_note_on(int ch) {
     melody_ch[ch].phase = 0;
     melody_ch[ch].env.level = 0;
     melody_ch[ch].env.phase = ENV_ATTACK;
+    melody_ch[ch].auto_off = 0;
 }
 
 void japi_sound_note_off(int ch) {
     if (ch < 0 || ch >= JAPI_SOUND_CHANNELS) return;
     melody_ch[ch].env.phase = ENV_RELEASE;
+    melody_ch[ch].auto_off = 0;
 }
 
 void japi_sound_off(void) {
-    for (int i = 0; i < JAPI_SOUND_CHANNELS; i++)
+    for (int i = 0; i < JAPI_SOUND_CHANNELS; i++) {
         melody_ch[i].env.phase = ENV_IDLE;
-    for (int i = 0; i < JAPI_DRUM_CHANNELS; i++) {
-        drum_ch[i].env.phase = ENV_IDLE;
-        drum_ch[i].tone_env.phase = ENV_IDLE;
+        melody_ch[i].auto_off = 0;
     }
 }
 
-void japi_drum_hit(int ch, uint8_t type) {
-    if (ch < 0 || ch >= JAPI_DRUM_CHANNELS) return;
-    audio_drum_t *d = &drum_ch[ch];
-    d->lfsr = 0xACE1u;
-
-    switch (type) {
-        case JAPI_DRUM_KICK:
-            d->use_tone = true;
-            d->tone_phase = 0;
-            d->tone_step = (uint32_t)60 * PHASE_INC_HZ;
-            d->env.attack_rate  = audio_ms_to_rate(1);
-            d->env.decay_rate   = audio_ms_to_rate(30);
-            d->env.sustain_level = 0;
-            d->env.release_rate = audio_ms_to_rate(30);
-            d->tone_env.attack_rate  = audio_ms_to_rate(1);
-            d->tone_env.decay_rate   = audio_ms_to_rate(120);
-            d->tone_env.sustain_level = 0;
-            d->tone_env.release_rate = audio_ms_to_rate(20);
-            d->env.level = 0;  d->env.phase = ENV_ATTACK;
-            d->tone_env.level = 0;  d->tone_env.phase = ENV_ATTACK;
-            break;
-        case JAPI_DRUM_SNARE:
-            d->use_tone = false;
-            d->env.attack_rate  = audio_ms_to_rate(1);
-            d->env.decay_rate   = audio_ms_to_rate(60);
-            d->env.sustain_level = 0;
-            d->env.release_rate = audio_ms_to_rate(40);
-            d->env.level = 0;  d->env.phase = ENV_ATTACK;
-            break;
-        case JAPI_DRUM_HIHAT:
-            d->use_tone = false;
-            d->env.attack_rate  = audio_ms_to_rate(1);
-            d->env.decay_rate   = audio_ms_to_rate(20);
-            d->env.sustain_level = 0;
-            d->env.release_rate = audio_ms_to_rate(20);
-            d->env.level = 0;  d->env.phase = ENV_ATTACK;
-            break;
+void japi_play_ch(int ch, uint8_t note, uint16_t duration_ms) {
+    if (ch < 0 || ch >= JAPI_SOUND_CHANNELS) return;
+    if (note == 255) {
+        melody_ch[ch].env.phase = ENV_IDLE;
+        melody_ch[ch].auto_off = 0;
+        return;
     }
+    if (note >= sizeof(midi_to_hz) / sizeof(midi_to_hz[0])) return;
+    uint16_t hz = midi_to_hz[note];
+    if (hz == 0) return;
+    melody_ch[ch].step = (uint32_t)hz * PHASE_INC_HZ;
+    melody_ch[ch].phase = 0;
+    melody_ch[ch].env.level = 0;
+    melody_ch[ch].env.phase = ENV_ATTACK;
+    melody_ch[ch].auto_off = (uint32_t)duration_ms * AUDIO_SAMPLE_RATE / 1000;
+}
+
+void japi_play(uint8_t note, uint16_t duration_ms) {
+    japi_play_ch(0, note, duration_ms);
 }
 
 // =========================================================================
