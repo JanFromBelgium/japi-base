@@ -111,7 +111,6 @@ static inline void __not_in_flash_func(kbd_push)(uint16_t c) {
 #define AUDIO_AMPLITUDE   3249
 #define WAVE_TABLE_SIZE   256
 #define PHASE_INC_HZ      88821u
-#define AUDIO_CALC_PER_LINE 22
 
 #define ENV_IDLE    0
 #define ENV_ATTACK  1
@@ -477,15 +476,10 @@ static void __not_in_flash_func(vga_dma_handler)(void) {
     pwm_set_chan_level(AUDIO_PWM_SLICE, PWM_CHAN_B, as->right);
     audio_play_idx++;
 
-    // Audio: calculate next frame's samples during VSync
-    if (scanline_counter >= VGA_HEIGHT && audio_calc_idx < AUDIO_SAMPLES) {
-        int wb = 1 - audio_play_buf;
-        int end = audio_calc_idx + AUDIO_CALC_PER_LINE;
-        if (end > AUDIO_SAMPLES) end = AUDIO_SAMPLES;
-        while (audio_calc_idx < end) {
-            audio_buf[wb][audio_calc_idx] = synth_render_sample();
-            audio_calc_idx++;
-        }
+    // Audio: calculate one sample per scanline (spread across all 806 lines)
+    if (audio_calc_idx < AUDIO_SAMPLES) {
+        audio_buf[1 - audio_play_buf][audio_calc_idx] = synth_render_sample();
+        audio_calc_idx++;
     }
 
     // Audio: swap buffers at frame boundary

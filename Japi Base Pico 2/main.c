@@ -59,6 +59,17 @@ static uint16_t wait_key(void) {
     return japi_get_char();
 }
 
+#define TICK_MS 150
+#define HOLD 0
+
+static void play_tick(int ch, const uint8_t *notes, int idx, int len) {
+    uint8_t n = notes[idx];
+    if (n == 0 || n == NOTE_REST) return;
+    int dur = TICK_MS;
+    for (int j = idx + 1; j < len && notes[j] == 0; j++) dur += TICK_MS;
+    japi_play_ch(ch, n, dur);
+}
+
 // =========================================================================
 // COLOUR PALETTE
 // =========================================================================
@@ -276,110 +287,101 @@ static void page_showcase(void) {
     for (int c = 0; c < VGA_COLS; c++) vga_set_char(63, c, ' ', VGA_BLACK, VGA_WHITE);
     vga_print(63, 2, "Press any key for API quick reference...", VGA_BLACK, VGA_WHITE);
 
-    // --- Sound demo: Fur Elise ---
+    // --- Sound demo: Korobeiniki (Tetris) — 4-channel ---
     japi_sound_wave(0, JAPI_WAVE_SINE);
-    japi_sound_envelope(0, 5, 80, 160, 250);
+    japi_sound_envelope(0, 5, 80, 180, 150);
     japi_sound_volume(0, 220);
-    japi_sound_pan(0, 118);
+    japi_sound_pan(0, 108);
 
     japi_sound_wave(1, JAPI_WAVE_TRIANGLE);
-    japi_sound_envelope(1, 10, 200, 100, 400);
-    japi_sound_volume(1, 120);
-    japi_sound_pan(1, 138);
+    japi_sound_envelope(1, 5, 60, 0, 50);
+    japi_sound_volume(1, 100);
+    japi_sound_pan(1, 148);
 
-    static const uint8_t fe_note[] = {
-        // --- A section ---
-        NOTE_E5, NOTE_DS5, NOTE_E5, NOTE_DS5, NOTE_E5, NOTE_B4, NOTE_D5, NOTE_C5,
-        NOTE_A4, NOTE_REST, NOTE_C4, NOTE_E4, NOTE_A4,
-        NOTE_B4, NOTE_REST, NOTE_E4, NOTE_GS4, NOTE_B4,
-        NOTE_C5, NOTE_REST, NOTE_E4,
-        NOTE_E5, NOTE_DS5, NOTE_E5, NOTE_DS5, NOTE_E5, NOTE_B4, NOTE_D5, NOTE_C5,
-        NOTE_A4, NOTE_REST, NOTE_C4, NOTE_E4, NOTE_A4,
-        NOTE_B4, NOTE_REST, NOTE_E4, NOTE_C5, NOTE_B4,
-        NOTE_A4, NOTE_REST, NOTE_REST,
-        // --- B section ---
-        NOTE_REST, NOTE_B4, NOTE_C5,
-        NOTE_D5, NOTE_REST, NOTE_G4, NOTE_F5, NOTE_E5,
-        NOTE_D5, NOTE_REST, NOTE_F4, NOTE_E5, NOTE_D5,
-        NOTE_C5, NOTE_REST, NOTE_E4, NOTE_D5, NOTE_C5,
-        NOTE_B4, NOTE_REST, NOTE_REST, NOTE_E4, NOTE_E5,
-        NOTE_REST, NOTE_REST, NOTE_DS5,
-        // --- A section (da capo) ---
-        NOTE_E5, NOTE_DS5, NOTE_E5, NOTE_DS5, NOTE_E5, NOTE_B4, NOTE_D5, NOTE_C5,
-        NOTE_A4, NOTE_REST, NOTE_C4, NOTE_E4, NOTE_A4,
-        NOTE_B4, NOTE_REST, NOTE_E4, NOTE_GS4, NOTE_B4,
-        NOTE_C5, NOTE_REST, NOTE_E4,
-        NOTE_E5, NOTE_DS5, NOTE_E5, NOTE_DS5, NOTE_E5, NOTE_B4, NOTE_D5, NOTE_C5,
-        NOTE_A4, NOTE_REST, NOTE_C4, NOTE_E4, NOTE_A4,
-        NOTE_B4, NOTE_REST, NOTE_E4, NOTE_C5, NOTE_B4,
-        NOTE_A4, NOTE_REST, NOTE_REST, NOTE_REST,
+    japi_sound_wave(2, JAPI_WAVE_SAW);
+    japi_sound_envelope(2, 3, 40, 80, 30);
+    japi_sound_volume(2, 70);
+    japi_sound_pan(2, 128);
+
+    japi_sound_wave(3, JAPI_WAVE_SQUARE);
+    japi_sound_envelope(3, 5, 100, 140, 100);
+    japi_sound_volume(3, 130);
+    japi_sound_pan(3, 128);
+
+    static const uint8_t t_mel[] = {
+        NOTE_E5,HOLD,NOTE_B4,NOTE_C5, NOTE_D5,HOLD,NOTE_C5,NOTE_B4,
+        NOTE_A4,HOLD,NOTE_A4,NOTE_C5, NOTE_E5,HOLD,NOTE_D5,NOTE_C5,
+        NOTE_B4,HOLD,HOLD,NOTE_C5,    NOTE_D5,HOLD,NOTE_E5,HOLD,
+        NOTE_C5,HOLD,NOTE_A4,HOLD,    NOTE_A4,HOLD,HOLD,HOLD,
+        NOTE_REST,HOLD,NOTE_D5,HOLD,  HOLD,NOTE_F5,NOTE_A5,HOLD,
+        NOTE_G5,NOTE_F5,NOTE_E5,HOLD, HOLD,NOTE_C5,NOTE_E5,HOLD,
+        NOTE_D5,NOTE_C5,NOTE_B4,HOLD, HOLD,NOTE_C5,NOTE_D5,HOLD,
+        NOTE_E5,HOLD,NOTE_C5,HOLD,    NOTE_A4,HOLD,HOLD,HOLD,
+        NOTE_E5,HOLD,NOTE_B4,NOTE_C5, NOTE_D5,HOLD,NOTE_C5,NOTE_B4,
+        NOTE_A4,HOLD,NOTE_A4,NOTE_C5, NOTE_E5,HOLD,NOTE_D5,NOTE_C5,
+        NOTE_B4,HOLD,HOLD,NOTE_C5,    NOTE_D5,HOLD,NOTE_E5,HOLD,
+        NOTE_C5,HOLD,NOTE_A4,HOLD,    NOTE_A4,HOLD,HOLD,HOLD,
+        NOTE_REST,HOLD,HOLD,HOLD,
     };
-    static const uint16_t fe_dur[] = {
-        // --- A section ---
-        154, 154, 154, 154, 154, 154, 154, 154,
-        308, 154, 154, 154, 154,
-        308, 154, 154, 154, 154,
-        308, 154, 154,
-        154, 154, 154, 154, 154, 154, 154, 154,
-        308, 154, 154, 154, 154,
-        308, 154, 154, 154, 154,
-        308, 154, 154,
-        // --- B section ---
-        154, 154, 154,
-        308, 154, 154, 154, 154,
-        308, 154, 154, 154, 154,
-        308, 154, 154, 154, 154,
-        308, 154, 154, 154, 154,
-        154, 154, 154,
-        // --- A section (da capo) ---
-        154, 154, 154, 154, 154, 154, 154, 154,
-        308, 154, 154, 154, 154,
-        308, 154, 154, 154, 154,
-        308, 154, 154,
-        154, 154, 154, 154, 154, 154, 154, 154,
-        308, 154, 154, 154, 154,
-        308, 154, 154, 154, 154,
-        462, 308, 308, 308,
+    static const uint8_t t_arp[] = {
+        NOTE_A3,NOTE_C4,NOTE_E4,NOTE_C4, NOTE_A3,NOTE_C4,NOTE_E4,NOTE_C4,
+        NOTE_A3,NOTE_C4,NOTE_E4,NOTE_C4, NOTE_A3,NOTE_C4,NOTE_E4,NOTE_C4,
+        NOTE_E3,NOTE_GS3,NOTE_B3,NOTE_GS3, NOTE_E3,NOTE_GS3,NOTE_B3,NOTE_GS3,
+        NOTE_A3,NOTE_C4,NOTE_E4,NOTE_C4, NOTE_A3,NOTE_C4,NOTE_E4,NOTE_C4,
+        NOTE_F3,NOTE_A3,NOTE_C4,NOTE_A3, NOTE_F3,NOTE_A3,NOTE_C4,NOTE_A3,
+        NOTE_C4,NOTE_E4,NOTE_G4,NOTE_E4, NOTE_C4,NOTE_E4,NOTE_G4,NOTE_E4,
+        NOTE_G3,NOTE_B3,NOTE_D4,NOTE_B3, NOTE_G3,NOTE_B3,NOTE_D4,NOTE_B3,
+        NOTE_A3,NOTE_C4,NOTE_E4,NOTE_C4, NOTE_A3,NOTE_C4,NOTE_E4,NOTE_C4,
+        NOTE_A3,NOTE_C4,NOTE_E4,NOTE_C4, NOTE_A3,NOTE_C4,NOTE_E4,NOTE_C4,
+        NOTE_A3,NOTE_C4,NOTE_E4,NOTE_C4, NOTE_A3,NOTE_C4,NOTE_E4,NOTE_C4,
+        NOTE_E3,NOTE_GS3,NOTE_B3,NOTE_GS3, NOTE_E3,NOTE_GS3,NOTE_B3,NOTE_GS3,
+        NOTE_A3,NOTE_C4,NOTE_E4,NOTE_C4, NOTE_A3,NOTE_C4,NOTE_E4,NOTE_C4,
+        NOTE_A3,NOTE_C4,NOTE_E4,HOLD,
     };
-    static const uint8_t fe_bass[] = {
-        // --- A section ---
-        NOTE_REST, NOTE_REST, NOTE_REST, NOTE_REST, NOTE_REST, NOTE_REST, NOTE_REST, NOTE_REST,
-        NOTE_A2, NOTE_REST, NOTE_REST, NOTE_REST, NOTE_REST,
-        NOTE_E2, NOTE_REST, NOTE_REST, NOTE_REST, NOTE_REST,
-        NOTE_A2, NOTE_REST, NOTE_REST,
-        NOTE_REST, NOTE_REST, NOTE_REST, NOTE_REST, NOTE_REST, NOTE_REST, NOTE_REST, NOTE_REST,
-        NOTE_A2, NOTE_REST, NOTE_REST, NOTE_REST, NOTE_REST,
-        NOTE_E2, NOTE_REST, NOTE_REST, NOTE_REST, NOTE_REST,
-        NOTE_A2, NOTE_REST, NOTE_REST,
-        // --- B section ---
-        NOTE_REST, NOTE_REST, NOTE_REST,
-        NOTE_C3, NOTE_REST, NOTE_REST, NOTE_REST, NOTE_REST,
-        NOTE_G2, NOTE_REST, NOTE_REST, NOTE_REST, NOTE_REST,
-        NOTE_A2, NOTE_REST, NOTE_REST, NOTE_REST, NOTE_REST,
-        NOTE_E2, NOTE_REST, NOTE_REST, NOTE_REST, NOTE_REST,
-        NOTE_REST, NOTE_REST, NOTE_REST,
-        // --- A section (da capo) ---
-        NOTE_REST, NOTE_REST, NOTE_REST, NOTE_REST, NOTE_REST, NOTE_REST, NOTE_REST, NOTE_REST,
-        NOTE_A2, NOTE_REST, NOTE_REST, NOTE_REST, NOTE_REST,
-        NOTE_E2, NOTE_REST, NOTE_REST, NOTE_REST, NOTE_REST,
-        NOTE_A2, NOTE_REST, NOTE_REST,
-        NOTE_REST, NOTE_REST, NOTE_REST, NOTE_REST, NOTE_REST, NOTE_REST, NOTE_REST, NOTE_REST,
-        NOTE_A2, NOTE_REST, NOTE_REST, NOTE_REST, NOTE_REST,
-        NOTE_E2, NOTE_REST, NOTE_REST, NOTE_REST, NOTE_REST,
-        NOTE_A2, NOTE_REST, NOTE_REST, NOTE_REST,
+    static const uint8_t t_stb[] = {
+        NOTE_E4,HOLD,NOTE_REST,HOLD, NOTE_E4,HOLD,NOTE_REST,HOLD,
+        NOTE_E4,HOLD,NOTE_REST,HOLD, NOTE_E4,HOLD,NOTE_REST,HOLD,
+        NOTE_B3,HOLD,NOTE_REST,HOLD, NOTE_B3,HOLD,NOTE_REST,HOLD,
+        NOTE_E4,HOLD,NOTE_REST,HOLD, NOTE_E4,HOLD,NOTE_REST,HOLD,
+        NOTE_A3,HOLD,NOTE_REST,HOLD, NOTE_A3,HOLD,NOTE_REST,HOLD,
+        NOTE_G4,HOLD,NOTE_REST,HOLD, NOTE_G4,HOLD,NOTE_REST,HOLD,
+        NOTE_B3,HOLD,NOTE_REST,HOLD, NOTE_B3,HOLD,NOTE_REST,HOLD,
+        NOTE_E4,HOLD,NOTE_REST,HOLD, NOTE_E4,HOLD,NOTE_REST,HOLD,
+        NOTE_E4,HOLD,NOTE_REST,HOLD, NOTE_E4,HOLD,NOTE_REST,HOLD,
+        NOTE_E4,HOLD,NOTE_REST,HOLD, NOTE_E4,HOLD,NOTE_REST,HOLD,
+        NOTE_B3,HOLD,NOTE_REST,HOLD, NOTE_B3,HOLD,NOTE_REST,HOLD,
+        NOTE_E4,HOLD,NOTE_REST,HOLD, NOTE_E4,HOLD,NOTE_REST,HOLD,
+        NOTE_E4,HOLD,HOLD,HOLD,
     };
-    #define FE_LEN (sizeof(fe_note))
-    int fe_idx = 0;
-    int fe_timer = 0;
+    static const uint8_t t_bas[] = {
+        NOTE_A2,HOLD,HOLD,HOLD, NOTE_E3,HOLD,HOLD,HOLD,
+        NOTE_A2,HOLD,HOLD,HOLD, NOTE_E3,HOLD,HOLD,HOLD,
+        NOTE_E2,HOLD,HOLD,HOLD, NOTE_B2,HOLD,HOLD,HOLD,
+        NOTE_A2,HOLD,HOLD,HOLD, NOTE_E2,HOLD,HOLD,HOLD,
+        NOTE_F2,HOLD,HOLD,HOLD, NOTE_C3,HOLD,HOLD,HOLD,
+        NOTE_C3,HOLD,HOLD,HOLD, NOTE_G2,HOLD,HOLD,HOLD,
+        NOTE_G2,HOLD,HOLD,HOLD, NOTE_D3,HOLD,HOLD,HOLD,
+        NOTE_A2,HOLD,HOLD,HOLD, NOTE_E2,HOLD,HOLD,HOLD,
+        NOTE_A2,HOLD,HOLD,HOLD, NOTE_E3,HOLD,HOLD,HOLD,
+        NOTE_A2,HOLD,HOLD,HOLD, NOTE_E3,HOLD,HOLD,HOLD,
+        NOTE_E2,HOLD,HOLD,HOLD, NOTE_B2,HOLD,HOLD,HOLD,
+        NOTE_A2,HOLD,HOLD,HOLD, NOTE_E2,HOLD,HOLD,HOLD,
+        NOTE_A2,HOLD,HOLD,HOLD,
+    };
+    #define T_LEN ((int)sizeof(t_mel))
+    int t_idx = 0;
+    int t_timer = 0;
 
     // --- Block animation on row 61 ---
     {
         for (int col = 1; col < VGA_COLS - 1; col++)
             vga_set_char(61, col, CH_HZ, VGA_CYAN, BG);
 
-        japi_play_ch(0, fe_note[0], fe_dur[0]);
-        if (fe_bass[0] != NOTE_REST) japi_play_ch(1, fe_bass[0], fe_dur[0]);
-        fe_timer = fe_dur[0];
+        play_tick(0, t_mel, 0, T_LEN);
+        play_tick(1, t_stb, 0, T_LEN);
+        play_tick(2, t_arp, 0, T_LEN);
+        play_tick(3, t_bas, 0, T_LEN);
+        t_timer = TICK_MS;
 
         int pos = 1;
         while (!japi_has_char()) {
@@ -388,14 +390,15 @@ static void page_showcase(void) {
             if (pos >= VGA_COLS - 1) pos = 1;
             vga_set_char(61, pos, CH_FULL, VGA_CYAN, BG);
 
-            fe_timer -= 40;
-            if (fe_timer <= 0) {
-                fe_idx++;
-                if (fe_idx >= (int)FE_LEN) fe_idx = 0;
-                japi_play_ch(0, fe_note[fe_idx], fe_dur[fe_idx]);
-                if (fe_bass[fe_idx] != NOTE_REST)
-                    japi_play_ch(1, fe_bass[fe_idx], fe_dur[fe_idx] + 200);
-                fe_timer = fe_dur[fe_idx];
+            t_timer -= 40;
+            if (t_timer <= 0) {
+                t_idx++;
+                if (t_idx >= T_LEN) t_idx = 0;
+                play_tick(0, t_mel, t_idx, T_LEN);
+                play_tick(1, t_stb, t_idx, T_LEN);
+                play_tick(2, t_arp, t_idx, T_LEN);
+                play_tick(3, t_bas, t_idx, T_LEN);
+                t_timer = TICK_MS;
             }
 
             sleep_ms(40);
