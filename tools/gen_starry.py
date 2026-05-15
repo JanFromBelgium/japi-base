@@ -1,15 +1,27 @@
 #!/usr/bin/env python3
-"""Convert Starry Night JPG to 832x624 dithered C array for JAPI 64-colour palette.
+"""Convert a Starry Night JPG to a dithered C array for the JAPI 64-colour palette.
 
-JAPI palette: bits 5-4 = R, 3-2 = G, 1-0 = B. Each channel 4 levels mapped to
-analog voltages 0/0.20/0.43/0.63 V (per Context). Use those as perceptual output
-levels for FS dither error distribution.
+Output is 416x312 LOGICAL pixels; the VGA renderer expands each pixel 2x to
+832x624 on screen at scale=2. The buffer is exactly 416*312 = 129,792 bytes.
+
+JAPI palette: bits 5-4 = R, 3-2 = G, 1-0 = B. Each channel has 4 levels mapped
+to the analog DAC voltages 0/0.20/0.43/0.63 V; those are used as the perceptual
+output levels for Floyd-Steinberg error distribution.
+
+Source image (public domain, Google Art Project), kept as starry_source.jpg:
+  https://upload.wikimedia.org/wikipedia/commons/thumb/e/ea/Van_Gogh_-_Starry_Night_-_Google_Art_Project.jpg/1280px-Van_Gogh_-_Starry_Night_-_Google_Art_Project.jpg
+
+Usage:  python3 gen_starry.py [source.jpg] [output.h]
+Defaults: source = tools/starry_source.jpg
+          output = Japi Base Pico 2/starry_image.h
 """
 from PIL import Image
-import sys
+import sys, os
 
-SRC = "/home/jan/.claude/jobs/c986de0e/starry.jpg"
-DST_HDR = sys.argv[1] if len(sys.argv) > 1 else "starry_image.h"
+_HERE   = os.path.dirname(os.path.abspath(__file__))
+SRC     = sys.argv[1] if len(sys.argv) > 1 else os.path.join(_HERE, "starry_source.jpg")
+DST_HDR = sys.argv[2] if len(sys.argv) > 2 else os.path.join(
+              _HERE, "..", "Japi Base Pico 2", "starry_image.h")
 W, H = 416, 312   # logical pixels; renderer expands 2x to 832x624 on screen
 
 # Per-channel output values in 8-bit linear space, scaled from the analog
