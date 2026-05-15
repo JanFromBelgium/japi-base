@@ -480,30 +480,24 @@ static void clear_caption_panel(void) {
             vga_set_char(r, c, ' ', VGA_WHITE, BG);
 }
 
-// PHASE 1: bouncing balls (simple flat-colour version, the version that
-// proved stable on this rendering budget).
+// PHASE 1: bouncing balls on a solid billiard-felt background.
+// Flicker-free: the whole erase+move+draw mutation runs during the vertical
+// blanking interval (after vga_wait_vblank), so the VGA engine never scans a
+// half-updated buffer. A solid background makes the erase a per-row memset,
+// fast enough to finish well within the ~0.8 ms blank.
+#define FELT 0x04   /* dark billiard green (RRGGBB: R=0 G=1 B=0) */
+
 static void bitmap_phase_balls(uint8_t *buf, int W, int H, int duration_ms) {
-    // Paint gradient + white border directly into the bitmap.
-    for (int y = 0; y < H; y++)
-        for (int x = 0; x < W; x++) {
-            int r = (x * 4) / W;
-            int g = (y * 4) / H;
-            int b = ((x + y) * 4) / (W + H);
-            buf[y * W + x] = (r << 4) | (g << 2) | b;
-        }
-    for (int x = 0; x < W; x++) {
-        buf[x] = VGA_WHITE; buf[(H-1)*W + x] = VGA_WHITE;
-    }
-    for (int y = 0; y < H; y++) {
-        buf[y*W] = VGA_WHITE; buf[y*W + W - 1] = VGA_WHITE;
-    }
+    memset(buf, FELT, W * H);
+    for (int x = 0; x < W; x++) { buf[x] = VGA_WHITE; buf[(H-1)*W + x] = VGA_WHITE; }
+    for (int y = 0; y < H; y++) { buf[y*W] = VGA_WHITE; buf[y*W + W - 1] = VGA_WHITE; }
 
     clear_caption_panel();
     vga_print(2, 3, "Bouncing balls   --   416 x 312 logical pixels  ->  832 x 624 on screen",
               VGA_CYAN,   BG);
-    vga_print(3, 3, "Each frame redraws the gradient where balls were, then fills new positions.",
+    vga_print(3, 3, "Solid felt background; erase = per-row memset of the ball bounding box.",
               VGA_WHITE,  BG);
-    vga_print(4, 3, "Filled-circle threshold dx*dx + dy*dy <= r*r + r kills 1-pixel edge spikes.",
+    vga_print(4, 3, "All buffer mutation happens during vertical blank: zero flicker.",
               VGA_YELLOW, BG);
 
     vga_print(59, 3, "Six balls bouncing inside a 130 KB pixel buffer at scale=2.",  VGA_WHITE, BG);
@@ -515,36 +509,35 @@ static void bitmap_phase_balls(uint8_t *buf, int W, int H, int duration_ms) {
     #define NB 6
     int bx[NB]  = { 100, 250, 325,  60, 375, 200 };
     int by[NB]  = {  90,  60, 190, 240, 150, 125 };
-    int bdx[NB] = {   3,  -2,   3,   2,  -3,   2 };
-    int bdy[NB] = {   2,   2,  -2,  -2,   2,   3 };
+    int bdx[NB] = {   2,  -2,   2,   1,  -2,   1 };
+    int bdy[NB] = {   1,   2,  -1,  -2,   1,   2 };
     int br[NB]  = {  20,  16,  18,  22,  14,  19 };
     uint8_t bc[NB] = { VGA_RED, VGA_YELLOW, VGA_CYAN, VGA_GREEN, VGA_MAGENTA, VGA_WHITE };
 
-    int frames = duration_ms / 40;
+    int frames = duration_ms / 16;
     while (frames-- > 0 && !japi_has_char()) {
-        // Erase (gradient redraw inside ball bbox).
+        // Pace ~60fps, then align the mutation to the start of vblank.
+        sleep_ms(15);
+        vga_wait_vblank();
+
+        // Erase: fill each ball's bbox with felt (square erase is invisible
+        // on a solid background). Clipped to interior to keep the border.
         for (int i = 0; i < NB; i++) {
             int r = br[i];
-            int r2 = r*r + r;
-            for (int dy = -r; dy <= r; dy++)
-                for (int dx = -r; dx <= r; dx++)
-                    if (dx*dx + dy*dy <= r2) {
-                        int px = bx[i] + dx, py = by[i] + dy;
-                        if (px >= 1 && px < W-1 && py >= 1 && py < H-1) {
-                            int rr = (px * 4) / W;
-                            int gg = (py * 4) / H;
-                            int bb = ((px + py) * 4) / (W + H);
-                            buf[py*W + px] = (rr<<4) | (gg<<2) | bb;
-                        }
-                    }
+            int x0 = bx[i] - r, x1 = bx[i] + r;
+            int y0 = by[i] - r, y1 = by[i] + r;
+            if (x0 < 1) x0 = 1;  if (x1 > W - 2) x1 = W - 2;
+            if (y0 < 1) y0 = 1;  if (y1 > H - 2) y1 = H - 2;
+            for (int py = y0; py <= y1; py++)
+                memset(&buf[py*W + x0], FELT, x1 - x0 + 1);
         }
-        // Update.
+        // Move.
         for (int i = 0; i < NB; i++) {
             bx[i] += bdx[i]; by[i] += bdy[i];
             if (bx[i] - br[i] <= 1 || bx[i] + br[i] >= W - 2) bdx[i] = -bdx[i];
             if (by[i] - br[i] <= 1 || by[i] + br[i] >= H - 2) bdy[i] = -bdy[i];
         }
-        // Draw.
+        // Draw filled circles.
         for (int i = 0; i < NB; i++) {
             int r = br[i];
             int r2 = r*r + r;
@@ -556,7 +549,6 @@ static void bitmap_phase_balls(uint8_t *buf, int W, int H, int duration_ms) {
                             buf[py*W + px] = bc[i];
                     }
         }
-        sleep_ms(40);
     }
     #undef NB
 }
