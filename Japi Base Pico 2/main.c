@@ -469,12 +469,14 @@ static void page_showcase(void) {
 // PAGE 2: LARGE BITMAP DEMO (scale=2)
 // =========================================================================
 
-// Clear caption panel below the bitmap, aligned to the bitmap's column span
-// (cols 32..95) so the text reads as a continuation of the graphic above.
-// Rows 42 and 43 are kept blank as a visual gap between bitmap and text.
+// Clear the caption strips above (rows 1..5) and below (rows 58..63) the
+// 104x52 bitmap which sits at rows 6..57.
 static void clear_caption_panel(void) {
-    for (int r = 42; r <= 58; r++)
-        for (int c = 32; c <= 95; c++)
+    for (int r = 1; r <= 5; r++)
+        for (int c = 0; c < VGA_COLS; c++)
+            vga_set_char(r, c, ' ', VGA_WHITE, BG);
+    for (int r = 58; r <= 63; r++)
+        for (int c = 0; c < VGA_COLS; c++)
             vga_set_char(r, c, ' ', VGA_WHITE, BG);
 }
 
@@ -497,21 +499,26 @@ static void bitmap_phase_balls(uint8_t *buf, int W, int H, int duration_ms) {
     }
 
     clear_caption_panel();
-    vga_print(44, 32, "Bouncing balls",                      VGA_CYAN,   BG);
-    vga_print(46, 32, "Live animation: each frame redraws",  VGA_WHITE,  BG);
-    vga_print(47, 32, "the gradient where balls were, then", VGA_WHITE,  BG);
-    vga_print(48, 32, "fills new positions.",                VGA_WHITE,  BG);
-    vga_print(50, 32, "Filled-circle threshold:",            VGA_GREEN,  BG);
-    vga_print(51, 32, "  dx*dx + dy*dy <= r*r + r",          VGA_YELLOW, BG);
-    vga_print(52, 32, "kills 1-pixel spikes at the edges.",  VGA_WHITE,  BG);
+    vga_print(2, 3, "Bouncing balls   --   416 x 312 logical pixels  ->  832 x 624 on screen",
+              VGA_CYAN,   BG);
+    vga_print(3, 3, "Each frame redraws the gradient where balls were, then fills new positions.",
+              VGA_WHITE,  BG);
+    vga_print(4, 3, "Filled-circle threshold dx*dx + dy*dy <= r*r + r kills 1-pixel edge spikes.",
+              VGA_YELLOW, BG);
 
-    #define NB 3
-    int bx[NB]  = {  60, 150, 200 };
-    int by[NB]  = {  60,  40, 120 };
-    int bdx[NB] = {   3,  -2,   4 };
-    int bdy[NB] = {   2,   3,  -2 };
-    int br[NB]  = {  16,  12,  14 };
-    uint8_t bc[NB] = { VGA_RED, VGA_YELLOW, VGA_CYAN };
+    vga_print(59, 3, "Six balls bouncing inside a 130 KB pixel buffer at scale=2.",  VGA_WHITE, BG);
+    vga_print(60, 3, "Bitmap occupies 832 x 624 screen px (~70%% of screen area).",   VGA_WHITE, BG);
+    vga_print(61, 3, "Renders within per-scanline budget thanks to split text/bitmap rendering.",
+              VGA_GREEN, BG);
+
+    // Positions/radii in LOGICAL pixels (buffer is 416x312, renderer doubles).
+    #define NB 6
+    int bx[NB]  = { 100, 250, 325,  60, 375, 200 };
+    int by[NB]  = {  90,  60, 190, 240, 150, 125 };
+    int bdx[NB] = {   3,  -2,   3,   2,  -3,   2 };
+    int bdy[NB] = {   2,   2,  -2,  -2,   2,   3 };
+    int br[NB]  = {  20,  16,  18,  22,  14,  19 };
+    uint8_t bc[NB] = { VGA_RED, VGA_YELLOW, VGA_CYAN, VGA_GREEN, VGA_MAGENTA, VGA_WHITE };
 
     int frames = duration_ms / 40;
     while (frames-- > 0 && !japi_has_char()) {
@@ -562,14 +569,18 @@ static void bitmap_phase_photo(uint8_t *buf, int W, int H, int duration_ms) {
     memcpy(buf, starry_image, sizeof(starry_image));
 
     clear_caption_panel();
-    vga_print(44, 32, "The Starry Night",                      VGA_CYAN,   BG);
-    vga_print(45, 32, "Vincent van Gogh, 1889",                VGA_YELLOW, BG);
-    vga_print(47, 32, "256x192 in 64 colours,",                VGA_WHITE,  BG);
-    vga_print(48, 32, "Floyd-Steinberg dithered.",             VGA_WHITE,  BG);
-    vga_print(50, 32, "49 KB constant C array, one memcpy",    VGA_GREEN,  BG);
-    vga_print(51, 32, "on entry, zero CPU per frame.",         VGA_GREEN,  BG);
-    vga_print(53, 32, "Source: Wikimedia Commons,",            VGA_WHITE,  BG);
-    vga_print(54, 32, "Google Art Project (public domain).",   VGA_WHITE,  BG);
+    vga_print(2, 3, "The Starry Night   --   Vincent van Gogh, 1889",  VGA_CYAN,   BG);
+    vga_print(3, 3, "416 x 312 logical pixels in 64 colours, Floyd-Steinberg dithered.",
+              VGA_YELLOW, BG);
+    vga_print(4, 3, "Source: Wikimedia Commons, Google Art Project (public domain).",
+              VGA_WHITE,  BG);
+
+    vga_print(59, 3, "130 KB constant C array, one memcpy on entry, zero CPU per frame.",
+              VGA_GREEN, BG);
+    vga_print(60, 3, "Renderer expands each logical pixel to 2x2 -> 832 x 624 on screen.",
+              VGA_WHITE, BG);
+    vga_print(61, 3, "Renders within budget thanks to split text/bitmap rendering.",
+              VGA_GREEN, BG);
 
     int slept = 0;
     while (slept < duration_ms && !japi_has_char()) {
@@ -583,13 +594,11 @@ static void page_bitmap(void) {
 
     for (int c = 0; c < VGA_COLS; c++) vga_set_char(0, c, ' ', VGA_BLACK, VGA_CYAN);
     vga_print(0, 3,  "JAPI BASE  -  Bitmap Graphics (scale=2)",     VGA_BLACK, VGA_CYAN);
-    vga_print(0, 70, "256 x 192 logical pixels  |  64 colours",     VGA_BLACK, VGA_CYAN);
+    vga_print(0, 70, "832 x 624 logical pixels  |  64 colours",     VGA_BLACK, VGA_CYAN);
 
-    vga_print(2, 3, "japi_bitmap_open(32, 10, 64, 32, 2);", VGA_YELLOW, BG);
-    vga_print(3, 3, "Each logical pixel renders as 2 x 2 screen pixels.", VGA_YELLOW, BG);
-    vga_print(4, 3, "Buffer: 256 x 192 = 49,152 bytes.",  VGA_YELLOW, BG);
-
-    if (!japi_bitmap_open(32, 10, 64, 32, 2)) {
+    // 104 x 52 chars at scale=2 -> 832 x 624 px = 519,168 bytes (peak RAM).
+    // Centered: col=11 (11 free L, 12 free R), row=6 (5 free top, 6 free bottom).
+    if (!japi_bitmap_open(11, 6, 104, 52, 2)) {
         vga_print(30, 30, "Bitmap allocation failed!", VGA_RED, BG);
         wait_key();
         return;
@@ -599,13 +608,10 @@ static void page_bitmap(void) {
     int H = japi_bitmap_height();
     uint8_t *buf = japi_bitmap_buffer();
 
-    vga_print(59, 3, "Cycles between 2 demos every 5 seconds.  Press any key to continue...",
-              VGA_CYAN, BG);
-
     while (!japi_has_char()) {
-        bitmap_phase_balls(buf, W, H, 5000);
+        bitmap_phase_balls(buf, W, H, 6000);
         if (japi_has_char()) break;
-        bitmap_phase_photo(buf, W, H, 5000);
+        bitmap_phase_photo(buf, W, H, 6000);
     }
 
     japi_bitmap_close();
@@ -613,9 +619,10 @@ static void page_bitmap(void) {
 }
 
 // =========================================================================
-// PAGE 2b: BITMAP STRESS TESTS (worst-case sizes)
+// PAGE 2b: BITMAP STRESS TESTS (worst-case sizes) -- DISABLED
+// page_bitmap above now uses the same 104x52 max window so this is redundant.
 // =========================================================================
-
+#if 0
 static void stress_paint_gradient(uint8_t *buf, int W, int H) {
     for (int y = 0; y < H; y++)
         for (int x = 0; x < W; x++) {
@@ -629,78 +636,47 @@ static void stress_paint_gradient(uint8_t *buf, int W, int H) {
 }
 
 static void page_bitmap_stress(void) {
-    // ---- TEST 1: MAX-WIDTH bitmap, scale=2, near 128KB ----
+    // 104 × 52 chars @ scale=2 -> 832 × 624 logical px = 129,792 bytes.
+    // Perfectly centered: col=11 (11 free L, 12 free R), row=6 (6 free top & bottom).
     vga_clear(VGA_WHITE, BG);
     for (int c = 0; c < VGA_COLS; c++) vga_set_char(0, c, ' ', VGA_BLACK, VGA_RED);
-    vga_print(0, 3,  "STRESS TEST 1: max width 124x44 chars @ scale=2  ->  496x264 px",
+    vga_print(0, 3,  "STRESS TEST: 104x52 chars @ scale=2  ->  832x624 px, centered",
               VGA_BLACK, VGA_RED);
-    vga_print(0, 95, "131 KB buffer", VGA_BLACK, VGA_RED);
+    vga_print(0, 92, "130 KB buffer", VGA_BLACK, VGA_RED);
 
-    // 124 wide × 44 high @ scale=2 -> 130,944 bytes.
-    // Centered: cols 1..124 (1 free L, 2 free R), rows 10..53 (10 free above & below).
-    if (!japi_bitmap_open(1, 10, 124, 44, 2)) {
+    if (!japi_bitmap_open(11, 6, 104, 52, 2)) {
         vga_print(30, 30, "Allocation failed!", VGA_RED, BG);
         wait_key();
         return;
     }
-    int W1 = japi_bitmap_width();
-    int H1 = japi_bitmap_height();
-    uint8_t *buf1 = japi_bitmap_buffer();
-    stress_paint_gradient(buf1, W1, H1);
+    int W = japi_bitmap_width();
+    int H = japi_bitmap_height();
+    uint8_t *buf = japi_bitmap_buffer();
+    stress_paint_gradient(buf, W, H);
 
     // Animated diagonal sweep so any rendering corruption is impossible to miss.
-    int frames = 5000 / 40;
+    int frames = 8000 / 40;
     int sweep = 0;
     while (frames-- > 0 && !japi_has_char()) {
-        for (int y = 1; y < H1 - 1; y++) {
-            int xline = (sweep + y) % (W1 - 2) + 1;
-            buf1[y * W1 + xline] = VGA_YELLOW;
+        for (int y = 1; y < H - 1; y++) {
+            int xline = (sweep + y) % (W - 2) + 1;
+            buf[y * W + xline] = VGA_YELLOW;
         }
         sleep_ms(40);
         // Repaint clean gradient under the previous sweep to avoid trails.
-        for (int y = 1; y < H1 - 1; y++) {
-            int xline = (sweep + y) % (W1 - 2) + 1;
-            int rr = (xline * 4) / W1;
-            int gg = (y * 4) / H1;
-            int bb = ((xline + y) * 4) / (W1 + H1);
-            buf1[y * W1 + xline] = (rr << 4) | (gg << 2) | bb;
+        for (int y = 1; y < H - 1; y++) {
+            int xline = (sweep + y) % (W - 2) + 1;
+            int rr = (xline * 4) / W;
+            int gg = (y * 4) / H;
+            int bb = ((xline + y) * 4) / (W + H);
+            buf[y * W + xline] = (rr << 4) | (gg << 2) | bb;
         }
-        sweep = (sweep + 3) % (W1 - 2);
+        sweep = (sweep + 3) % (W - 2);
     }
-    japi_bitmap_close();
-    if (japi_has_char()) { japi_get_char(); return; }
-
-    // ---- TEST 2: TALL-NARROW bitmap, 1 char wide × 51 high ----
-    vga_clear(VGA_WHITE, BG);
-    for (int c = 0; c < VGA_COLS; c++) vga_set_char(0, c, ' ', VGA_BLACK, VGA_RED);
-    vga_print(0, 3,  "STRESS TEST 2: 1x51 chars @ scale=1  ->  8x612 px (tall narrow strip)",
-              VGA_BLACK, VGA_RED);
-
-    // Centered single-column strip, ~80% screen height. 51 rows × 12 = 612 px.
-    if (!japi_bitmap_open(63, 6, 1, 51, 1)) {
-        vga_print(30, 30, "Allocation failed!", VGA_RED, BG);
-        wait_key();
-        return;
-    }
-    int W2 = japi_bitmap_width();
-    int H2 = japi_bitmap_height();
-    uint8_t *buf2 = japi_bitmap_buffer();
-    // Vertical rainbow stripes
-    for (int y = 0; y < H2; y++) {
-        uint8_t c = ((y * 64) / H2) & 0x3F;
-        for (int x = 0; x < W2; x++) buf2[y * W2 + x] = c;
-    }
-
-    vga_print(2, 3, "Single-character-wide strip spanning ~80% of screen height.",
-              VGA_YELLOW, BG);
-    vga_print(3, 3, "Tests the OTHER extreme: tiny bitmap, very tall.",
-              VGA_YELLOW, BG);
-
-    int slept = 0;
-    while (slept < 5000 && !japi_has_char()) { sleep_ms(50); slept += 50; }
     japi_bitmap_close();
     japi_get_char();
 }
+#endif
 
 // =========================================================================
 // PAGE 3: API QUICK REFERENCE
@@ -941,7 +917,6 @@ int main() {
     while (true) {
         page_showcase();
         page_bitmap();
-        page_bitmap_stress();
         page_api();
     }
 }
