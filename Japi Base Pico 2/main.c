@@ -493,16 +493,14 @@ static void bitmap_phase_balls(uint8_t *buf, int W, int H, int duration_ms) {
     for (int y = 0; y < H; y++) { buf[y*W] = VGA_WHITE; buf[y*W + W - 1] = VGA_WHITE; }
 
     clear_caption_panel();
-    vga_print(2, 3, "Bouncing balls   --   416 x 312 logical pixels  ->  832 x 624 on screen",
+    vga_print(2, 3, "832 x 624 screen pixels (416 x 312 logical, expanded x2).",
               VGA_CYAN,   BG);
-    vga_print(3, 3, "Solid felt background; erase = per-row memset of the ball bounding box.",
+    vga_print(3, 3, "Solid felt background makes the erase a fast per-row memset.",
               VGA_WHITE,  BG);
-    vga_print(4, 3, "All buffer mutation happens during vertical blank: zero flicker.",
+    vga_print(4, 3, "Erase + move + draw run entirely in the vertical blank: zero flicker.",
               VGA_YELLOW, BG);
 
-    vga_print(59, 3, "Six balls bouncing inside a 130 KB pixel buffer at scale=2.",  VGA_WHITE, BG);
-    vga_print(60, 3, "Bitmap occupies 832 x 624 screen px (~70%% of screen area).",   VGA_WHITE, BG);
-    vga_print(61, 3, "Renders within per-scanline budget thanks to split text/bitmap rendering.",
+    vga_print(60, 3, "127 KB pixel buffer, ~70% of the screen, within per-scanline budget.",
               VGA_GREEN, BG);
 
     // Positions/radii in LOGICAL pixels (buffer is 416x312, renderer doubles).
@@ -537,16 +535,26 @@ static void bitmap_phase_balls(uint8_t *buf, int W, int H, int duration_ms) {
             if (bx[i] - br[i] <= 1 || bx[i] + br[i] >= W - 2) bdx[i] = -bdx[i];
             if (by[i] - br[i] <= 1 || by[i] + br[i] >= H - 2) bdy[i] = -bdy[i];
         }
-        // Draw filled circles.
+        // Flat-colour balls with a single large white specular highlight,
+        // offset toward the light (upper-left). No body shading.
         for (int i = 0; i < NB; i++) {
             int r = br[i];
             int r2 = r*r + r;
+            uint8_t c_base = bc[i];
+            // Highlight offset 0.33 r toward the light, radius 0.40 r.
+            // Max reach = 0.33*sqrt(2)*r + 0.40 r ~= 0.87 r, comfortably
+            // inside the ball at every radius so it never clips to a
+            // non-circle (the red ball used to clip at the old 0.45 r).
+            int hx = -r/3, hy = -r/3;
+            int spec_r2 = (r*r*4) / 25;           // ~0.40 r radius
             for (int dy = -r; dy <= r; dy++)
                 for (int dx = -r; dx <= r; dx++)
                     if (dx*dx + dy*dy <= r2) {
                         int px = bx[i] + dx, py = by[i] + dy;
-                        if (px >= 1 && px < W-1 && py >= 1 && py < H-1)
-                            buf[py*W + px] = bc[i];
+                        if (px < 1 || px >= W-1 || py < 1 || py >= H-1) continue;
+                        int sx = dx - hx, sy = dy - hy;
+                        buf[py*W + px] =
+                            (sx*sx + sy*sy <= spec_r2) ? VGA_WHITE : c_base;
                     }
         }
     }
@@ -581,31 +589,45 @@ static void bitmap_phase_photo(uint8_t *buf, int W, int H, int duration_ms) {
     }
 }
 
-static void page_bitmap(void) {
+// Both bitmap pages share this setup. Returns false (and shows an error)
+// if the 130 KB buffer can't be allocated.
+static bool open_bitmap_page(const char *title, int *W, int *H, uint8_t **buf) {
     vga_clear(VGA_WHITE, BG);
-
     for (int c = 0; c < VGA_COLS; c++) vga_set_char(0, c, ' ', VGA_BLACK, VGA_CYAN);
-    vga_print(0, 3,  "JAPI BASE  -  Bitmap Graphics (scale=2)",     VGA_BLACK, VGA_CYAN);
-    vga_print(0, 70, "832 x 624 logical pixels  |  64 colours",     VGA_BLACK, VGA_CYAN);
+    vga_print(0, 3,  title, VGA_BLACK, VGA_CYAN);
+    vga_print(0, 90, "Press any key ->", VGA_BLACK, VGA_CYAN);
 
     // 104 x 52 chars at scale=2 -> 832 x 624 px = 519,168 bytes (peak RAM).
     // Centered: col=11 (11 free L, 12 free R), row=6 (5 free top, 6 free bottom).
     if (!japi_bitmap_open(11, 6, 104, 52, 2)) {
         vga_print(30, 30, "Bitmap allocation failed!", VGA_RED, BG);
         wait_key();
+        return false;
+    }
+    *W   = japi_bitmap_width();
+    *H   = japi_bitmap_height();
+    *buf = japi_bitmap_buffer();
+    return true;
+}
+
+#define RUN_UNTIL_KEY 3600000   /* effectively until a key is pressed */
+
+static void page_bitmap_balls(void) {
+    int W, H; uint8_t *buf;
+    if (!open_bitmap_page("JAPI BASE  -  Bitmap Graphics: Bouncing Balls (scale=2)",
+                          &W, &H, &buf))
         return;
-    }
+    bitmap_phase_balls(buf, W, H, RUN_UNTIL_KEY);
+    japi_bitmap_close();
+    japi_get_char();
+}
 
-    int W = japi_bitmap_width();
-    int H = japi_bitmap_height();
-    uint8_t *buf = japi_bitmap_buffer();
-
-    while (!japi_has_char()) {
-        bitmap_phase_balls(buf, W, H, 6000);
-        if (japi_has_char()) break;
-        bitmap_phase_photo(buf, W, H, 6000);
-    }
-
+static void page_bitmap_photo(void) {
+    int W, H; uint8_t *buf;
+    if (!open_bitmap_page("JAPI BASE  -  Bitmap Graphics: The Starry Night (scale=2)",
+                          &W, &H, &buf))
+        return;
+    bitmap_phase_photo(buf, W, H, RUN_UNTIL_KEY);
     japi_bitmap_close();
     japi_get_char();
 }
@@ -908,7 +930,8 @@ int main() {
 
     while (true) {
         page_showcase();
-        page_bitmap();
+        page_bitmap_balls();
+        page_bitmap_photo();
         page_api();
     }
 }
