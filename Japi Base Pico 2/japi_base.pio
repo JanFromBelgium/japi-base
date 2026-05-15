@@ -105,6 +105,7 @@ pixel_loop:
 
 .wrap_target
     ; --- VISIBLE: 768 lines (Y = 767) ---
+    irq nowait 0        side 1      ; Signal CPU: line 0 visible starts NOW
     mov x, y            side 1      ; Load visible line count from Y
 vis_loop:
     wait 1 irq 4        side 1

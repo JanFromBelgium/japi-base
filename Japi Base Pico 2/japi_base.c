@@ -295,57 +295,80 @@ static void __not_in_flash_func(vga_render_line)(uint8_t *dest, int line_idx) {
 
     int char_row  = line_idx / FONT_H;
     int font_line = line_idx % FONT_H;
-    uint32_t *p32 = (uint32_t *)dest;
 
-    *p32++ = 0;
+    // Layout: text flush-left from byte 0; 127 cols × 8 = 1016 px text +
+    // 8 px trailing black to fill the 1024-byte DMA buffer.
+    // bitmap_px_x is column-aligned (multiple of FONT_W) so split-rendering
+    // works cleanly: render text up to start_col, then bitmap directly into
+    // dest, then text from end_col onwards. No wasted writes under the bitmap.
+
+    int bm_start = VGA_COLS;   // first text col covered by bitmap (= no bitmap)
+    int bm_end   = VGA_COLS;   // first text col after bitmap
+    int bm_sy    = 0;
+    if (bitmap_buf) {
+        int sy = line_idx - bitmap_px_y;
+        if (sy >= 0 && sy < bitmap_px_h) {
+            bm_start = bitmap_px_x / FONT_W;
+            bm_end   = bm_start + bitmap_px_w / FONT_W;
+            bm_sy    = sy;
+        }
+    }
 
     vga_char_t *curr_char = &vga_text_buffer[char_row][0];
+    uint32_t   *p32       = (uint32_t *)dest;
 
-    for (int col = 0; col < VGA_COLS; col++) {
+    // --- Text segment 1: cols [0, bm_start) ---
+    for (int col = 0; col < bm_start; col++) {
         uint8_t glyph = font_8x12[curr_char->code][font_line];
         uint32_t fg_word = (uint32_t)curr_char->fg * 0x01010101U;
         uint32_t bg_word = (uint32_t)curr_char->bg * 0x01010101U;
-
         uint32_t mask = nibble_expand[(glyph >> 4) & 0xF];
         *p32++ = (fg_word & mask) | (bg_word & ~mask);
-
         mask = nibble_expand[glyph & 0xF];
         *p32++ = (fg_word & mask) | (bg_word & ~mask);
         curr_char++;
     }
 
-    *p32++ = 0;
-
-    if (bitmap_buf) {
-        int sy = line_idx - bitmap_px_y;
-        if (sy >= 0 && sy < bitmap_px_h) {
-            if (bitmap_scale == 1) {
-                memcpy(dest + bitmap_px_x,
-                       bitmap_buf + sy * bitmap_log_w,
-                       bitmap_log_w);
-            } else {
-                // scale == 2: expand each logical pixel to 2x2 screen pixels.
-                // Process 4 logical pixels per iteration via one 32-bit source
-                // read and two 32-bit destination writes. For pixels p0..p3:
-                //   word0 bytes = [p0,p0,p1,p1] = p0*0x0101 | p1*0x01010000
-                //   word1 bytes = [p2,p2,p3,p3] = p2*0x0101 | p3*0x01010000
-                // bitmap_log_w (=w_chars*4) is always a multiple of 4 and both
-                // src and dst start on 4-byte boundaries.
-                const uint32_t *src32 = (const uint32_t *)(bitmap_buf + (sy >> 1) * bitmap_log_w);
-                uint32_t *dst32 = (uint32_t *)(dest + bitmap_px_x);
-                int n4 = bitmap_log_w >> 2;
-                for (int i = 0; i < n4; i++) {
-                    uint32_t v  = *src32++;
-                    uint32_t p0 = v & 0xFFu;
-                    uint32_t p1 = (v >> 8)  & 0xFFu;
-                    uint32_t p2 = (v >> 16) & 0xFFu;
-                    uint32_t p3 = v >> 24;
-                    *dst32++ = (p0 * 0x0101u) | (p1 * 0x01010000u);
-                    *dst32++ = (p2 * 0x0101u) | (p3 * 0x01010000u);
-                }
+    // --- Bitmap segment (only if active) ---
+    if (bm_start < VGA_COLS) {
+        if (bitmap_scale == 1) {
+            memcpy(dest + bitmap_px_x,
+                   bitmap_buf + bm_sy * bitmap_log_w,
+                   bitmap_log_w);
+        } else {
+            const uint32_t *src32 = (const uint32_t *)(bitmap_buf + (bm_sy >> 1) * bitmap_log_w);
+            uint32_t *dst32 = (uint32_t *)(dest + bitmap_px_x);
+            int n4 = bitmap_log_w >> 2;
+            for (int i = 0; i < n4; i++) {
+                uint32_t v  = *src32++;
+                uint32_t p0 = v & 0xFFu;
+                uint32_t p1 = (v >> 8)  & 0xFFu;
+                uint32_t p2 = (v >> 16) & 0xFFu;
+                uint32_t p3 = v >> 24;
+                *dst32++ = (p0 * 0x0101u) | (p1 * 0x01010000u);
+                *dst32++ = (p2 * 0x0101u) | (p3 * 0x01010000u);
             }
         }
+        // Reposition for text segment 2
+        curr_char = &vga_text_buffer[char_row][bm_end];
+        p32       = (uint32_t *)(dest + bm_end * FONT_W);
     }
+
+    // --- Text segment 2: cols [bm_end, VGA_COLS) ---
+    for (int col = bm_end; col < VGA_COLS; col++) {
+        uint8_t glyph = font_8x12[curr_char->code][font_line];
+        uint32_t fg_word = (uint32_t)curr_char->fg * 0x01010101U;
+        uint32_t bg_word = (uint32_t)curr_char->bg * 0x01010101U;
+        uint32_t mask = nibble_expand[(glyph >> 4) & 0xF];
+        *p32++ = (fg_word & mask) | (bg_word & ~mask);
+        mask = nibble_expand[glyph & 0xF];
+        *p32++ = (fg_word & mask) | (bg_word & ~mask);
+        curr_char++;
+    }
+
+    // Trailing 8 px black to fill 1024-byte DMA buffer.
+    *p32++ = 0;
+    *p32++ = 0;
 }
 
 // =========================================================================
@@ -369,6 +392,15 @@ static void __not_in_flash_func(vga_dma_handler)(void) {
 
     scanline_counter++;
     if (scanline_counter >= TOTAL_LINES) scanline_counter = 0;
+
+    // Resync: PIO raises IRQ flag 0 once per frame at start of visible line 0.
+    // Polling here (instead of via separate IRQ) avoids priority races with
+    // an overrunning DMA handler, and always lands on a safe inter-scanline
+    // boundary.
+    if (pio0_hw->irq & 1u) {
+        pio0_hw->irq = 1u;
+        scanline_counter = 0;
+    }
 
     // Poll PS/2 keyboard FIFO
     while (!pio_sm_is_rx_fifo_empty(pio0, 2)) {
@@ -599,7 +631,7 @@ bool japi_bitmap_open(int col, int row, int w_chars, int h_chars, int scale) {
     uint8_t *buf = malloc(lw * lh);
     if (!buf) return false;
     memset(buf, VGA_BLACK, lw * lh);
-    bitmap_px_x  = col * FONT_W + 4;
+    bitmap_px_x  = col * FONT_W;  // PADDING TEST: text now flush-left
     bitmap_px_y  = row * FONT_H;
     bitmap_px_w  = pw;
     bitmap_px_h  = ph;

@@ -613,6 +613,96 @@ static void page_bitmap(void) {
 }
 
 // =========================================================================
+// PAGE 2b: BITMAP STRESS TESTS (worst-case sizes)
+// =========================================================================
+
+static void stress_paint_gradient(uint8_t *buf, int W, int H) {
+    for (int y = 0; y < H; y++)
+        for (int x = 0; x < W; x++) {
+            int r = (x * 4) / W;
+            int g = (y * 4) / H;
+            int b = ((x + y) * 4) / (W + H);
+            buf[y * W + x] = (r << 4) | (g << 2) | b;
+        }
+    for (int x = 0; x < W; x++) { buf[x] = VGA_WHITE; buf[(H-1)*W + x] = VGA_WHITE; }
+    for (int y = 0; y < H; y++) { buf[y*W] = VGA_WHITE; buf[y*W + W - 1] = VGA_WHITE; }
+}
+
+static void page_bitmap_stress(void) {
+    // ---- TEST 1: MAX-WIDTH bitmap, scale=2, near 128KB ----
+    vga_clear(VGA_WHITE, BG);
+    for (int c = 0; c < VGA_COLS; c++) vga_set_char(0, c, ' ', VGA_BLACK, VGA_RED);
+    vga_print(0, 3,  "STRESS TEST 1: max width 124x44 chars @ scale=2  ->  496x264 px",
+              VGA_BLACK, VGA_RED);
+    vga_print(0, 95, "131 KB buffer", VGA_BLACK, VGA_RED);
+
+    // 124 wide × 44 high @ scale=2 -> 130,944 bytes.
+    // Centered: cols 1..124 (1 free L, 2 free R), rows 10..53 (10 free above & below).
+    if (!japi_bitmap_open(1, 10, 124, 44, 2)) {
+        vga_print(30, 30, "Allocation failed!", VGA_RED, BG);
+        wait_key();
+        return;
+    }
+    int W1 = japi_bitmap_width();
+    int H1 = japi_bitmap_height();
+    uint8_t *buf1 = japi_bitmap_buffer();
+    stress_paint_gradient(buf1, W1, H1);
+
+    // Animated diagonal sweep so any rendering corruption is impossible to miss.
+    int frames = 5000 / 40;
+    int sweep = 0;
+    while (frames-- > 0 && !japi_has_char()) {
+        for (int y = 1; y < H1 - 1; y++) {
+            int xline = (sweep + y) % (W1 - 2) + 1;
+            buf1[y * W1 + xline] = VGA_YELLOW;
+        }
+        sleep_ms(40);
+        // Repaint clean gradient under the previous sweep to avoid trails.
+        for (int y = 1; y < H1 - 1; y++) {
+            int xline = (sweep + y) % (W1 - 2) + 1;
+            int rr = (xline * 4) / W1;
+            int gg = (y * 4) / H1;
+            int bb = ((xline + y) * 4) / (W1 + H1);
+            buf1[y * W1 + xline] = (rr << 4) | (gg << 2) | bb;
+        }
+        sweep = (sweep + 3) % (W1 - 2);
+    }
+    japi_bitmap_close();
+    if (japi_has_char()) { japi_get_char(); return; }
+
+    // ---- TEST 2: TALL-NARROW bitmap, 1 char wide × 51 high ----
+    vga_clear(VGA_WHITE, BG);
+    for (int c = 0; c < VGA_COLS; c++) vga_set_char(0, c, ' ', VGA_BLACK, VGA_RED);
+    vga_print(0, 3,  "STRESS TEST 2: 1x51 chars @ scale=1  ->  8x612 px (tall narrow strip)",
+              VGA_BLACK, VGA_RED);
+
+    // Centered single-column strip, ~80% screen height. 51 rows × 12 = 612 px.
+    if (!japi_bitmap_open(63, 6, 1, 51, 1)) {
+        vga_print(30, 30, "Allocation failed!", VGA_RED, BG);
+        wait_key();
+        return;
+    }
+    int W2 = japi_bitmap_width();
+    int H2 = japi_bitmap_height();
+    uint8_t *buf2 = japi_bitmap_buffer();
+    // Vertical rainbow stripes
+    for (int y = 0; y < H2; y++) {
+        uint8_t c = ((y * 64) / H2) & 0x3F;
+        for (int x = 0; x < W2; x++) buf2[y * W2 + x] = c;
+    }
+
+    vga_print(2, 3, "Single-character-wide strip spanning ~80% of screen height.",
+              VGA_YELLOW, BG);
+    vga_print(3, 3, "Tests the OTHER extreme: tiny bitmap, very tall.",
+              VGA_YELLOW, BG);
+
+    int slept = 0;
+    while (slept < 5000 && !japi_has_char()) { sleep_ms(50); slept += 50; }
+    japi_bitmap_close();
+    japi_get_char();
+}
+
+// =========================================================================
 // PAGE 3: API QUICK REFERENCE
 // =========================================================================
 
@@ -851,6 +941,7 @@ int main() {
     while (true) {
         page_showcase();
         page_bitmap();
+        page_bitmap_stress();
         page_api();
     }
 }
