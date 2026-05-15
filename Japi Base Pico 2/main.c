@@ -633,66 +633,6 @@ static void page_bitmap_photo(void) {
 }
 
 // =========================================================================
-// PAGE 2b: BITMAP STRESS TESTS (worst-case sizes) -- DISABLED
-// page_bitmap above now uses the same 104x52 max window so this is redundant.
-// =========================================================================
-#if 0
-static void stress_paint_gradient(uint8_t *buf, int W, int H) {
-    for (int y = 0; y < H; y++)
-        for (int x = 0; x < W; x++) {
-            int r = (x * 4) / W;
-            int g = (y * 4) / H;
-            int b = ((x + y) * 4) / (W + H);
-            buf[y * W + x] = (r << 4) | (g << 2) | b;
-        }
-    for (int x = 0; x < W; x++) { buf[x] = VGA_WHITE; buf[(H-1)*W + x] = VGA_WHITE; }
-    for (int y = 0; y < H; y++) { buf[y*W] = VGA_WHITE; buf[y*W + W - 1] = VGA_WHITE; }
-}
-
-static void page_bitmap_stress(void) {
-    // 104 × 52 chars @ scale=2 -> 832 × 624 logical px = 129,792 bytes.
-    // Perfectly centered: col=11 (11 free L, 12 free R), row=6 (6 free top & bottom).
-    vga_clear(VGA_WHITE, BG);
-    for (int c = 0; c < VGA_COLS; c++) vga_set_char(0, c, ' ', VGA_BLACK, VGA_RED);
-    vga_print(0, 3,  "STRESS TEST: 104x52 chars @ scale=2  ->  832x624 px, centered",
-              VGA_BLACK, VGA_RED);
-    vga_print(0, 92, "130 KB buffer", VGA_BLACK, VGA_RED);
-
-    if (!japi_bitmap_open(11, 6, 104, 52, 2)) {
-        vga_print(30, 30, "Allocation failed!", VGA_RED, BG);
-        wait_key();
-        return;
-    }
-    int W = japi_bitmap_width();
-    int H = japi_bitmap_height();
-    uint8_t *buf = japi_bitmap_buffer();
-    stress_paint_gradient(buf, W, H);
-
-    // Animated diagonal sweep so any rendering corruption is impossible to miss.
-    int frames = 8000 / 40;
-    int sweep = 0;
-    while (frames-- > 0 && !japi_has_char()) {
-        for (int y = 1; y < H - 1; y++) {
-            int xline = (sweep + y) % (W - 2) + 1;
-            buf[y * W + xline] = VGA_YELLOW;
-        }
-        sleep_ms(40);
-        // Repaint clean gradient under the previous sweep to avoid trails.
-        for (int y = 1; y < H - 1; y++) {
-            int xline = (sweep + y) % (W - 2) + 1;
-            int rr = (xline * 4) / W;
-            int gg = (y * 4) / H;
-            int bb = ((xline + y) * 4) / (W + H);
-            buf[y * W + xline] = (rr << 4) | (gg << 2) | bb;
-        }
-        sweep = (sweep + 3) % (W - 2);
-    }
-    japi_bitmap_close();
-    japi_get_char();
-}
-#endif
-
-// =========================================================================
 // PAGE 3: API QUICK REFERENCE
 // =========================================================================
 
