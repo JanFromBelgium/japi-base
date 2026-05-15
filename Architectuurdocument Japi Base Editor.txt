@@ -1,0 +1,27 @@
+﻿Architectuurdocument: Japi Base Editor (JBE)
+1. Projectvisie en Doelstelling
+De Japi Base Editor (JBE) is een ultrasnelle, barebones tekst-editor die kan gebruikt worden als vervanging van de standaard MMBasic-editor. Het systeem is ontworpen als een zelfstandige user application voor het schrijven van MMBasic, Z80-assembler en later ook Turbo Pascal-achtige code. De focus ligt op een efficiënte, puur toetsenbord-gedreven workflow zonder visuele overhead. JBE leunt volledig op de onderliggende Japi Base-laag voor  VGA-weergave en het inlezen van toetsaanslagen.
+2. Systeemintegratie & Executie (Dual-Core Architectuur)
+Er is een strikte scheiding van verantwoordelijkheden op de Raspberry Pi Pico 2, waarbij de hardware nauwgezet wordt gescheiden van de applicatielogica:
+* Core 1 (Japi Base  / Hardware Layer): Beheert alle hardware-interrupts, de 1024x768 @ 60Hz VGA-rendering via DMA/PIO, de geluidsuitvoer, het inlezen van config.sys, en de toetsenbord-translaties (inclusief AZERTY_FR).
+* Core 0 (User Space / Applicatie Layer): Hier draait de JBE en overige gebruikerscode exclusief. De editor is een puur softwarematige state-machine die invoer (kant-en-klare karakter- en besturingscodes) van Core 1 ontvangt en uitsluitend de tekst- en kleurarrays in het gedeelde RAM manipuleert. Er is geen hardware-timing logica aanwezig in de editor die in conflikt kan komen met de VGA en sound generatie in Japi Base.
+3. Geheugenarchitectuur (Hardwarematige Tekst-Modus)
+Om RAM te besparen maakt de editor geen gebruik van een grafische framebuffer. De visuele weergave leunt helemaal op de Japi Base implementatie
+4. User Interface (UI) & Filosofie
+De interface combineert de sobere, efficiënte look-and-feel van klassieke QuickBASIC/Turbo Pascal editors met moderne navigatiestandaarden.
+* Visuele Stijl: Een tegel-gebaseerde interface (bijv. donkerblauwe achtergrond met grijze/witte tekst) met heldere kleuren voor syntax highlighting.
+* Bediening: Toetsenbord-exclusief. De JBE vertrouwt blind op de stuurcodes die de Japi Base keyboard driver op Core 1 aanlevert.
+* Schermindeling (127 kolommen x 64 regels):
+   * Regel 0: Menubalk (Bestand, Bewerken, Zoeken, Weergave). Optioneel verborgen tot ALT wordt ingedrukt.
+   * Regel 1 t/m 62: Het actieve werkveld (code weergave).
+   * Regel 63: Statusbalk met actieve bestandsnaam, cursorpositie (regel/kolom) en RAM-gebruik.
+5. Bestands- en Geheugenbeheer (Document Buffer)
+Bestanden langer dan de 62 beschikbare schermregels worden efficiënt in het RAM van de Pico 2 gehouden via een Array of Line Pointers (of Gap Buffer).
+* Het RAM bevat een array van pointers, waarbij elke pointer naar een individuele regel tekst in het geheugen wijst.
+* Bij het scrollen leest de editor op Core 0 de relevante set pointers uit en kopieert direct de juiste karakters naar de visuele TextArray_Code. Dit maakt het razendsnel inladen en bewerken van zeer grote bronbestanden mogelijk, waarbij de daadwerkelijke file I/O via de API met Japi Base wordt uitgevoerd.
+6. Kernfunctionaliteiten & Navigatie
+* Moderne Sneltoetsen: Gebruik van de moderne standaard (CTRL+C voor kopiëren, CTRL+V voor plakken, CTRL+X voor knippen, CTRL+Z voor ongedaan maken).
+* Geavanceerde Selectie: Naast standaard regelselectie (SHIFT + pijltjes) is er ondersteuning voor verticale Block Select (CTRL + SHIFT + pijltjes). Het virtuele klembord onthoudt hierbij de dimensies van het gekopieerde blok tekst (bijv. 8 kolommen breed, 4 regels hoog), wat cruciaal is voor uitlijning van assembler-code.
+* Modulaire Syntax Highlighting: Een 'Dictionary Engine' bepaalt de kleurregels op basis van de bestandsextensie (.BAS, .ASM, .PAS). De kleuring wordt dynamisch toegepast in de TextArray_FG tijdens het opbouwen van de zichtbare regels.
+* Multi-File & Split Screen: De status van een bestand wordt opgeslagen in een C-structuur (bevat file-handle, pointer-array, cursorpositie). Via sneltoetsen kan men de weergave splitsen (horizontaal of verticaal) om meerdere bestanden uit het RAM tegelijk in de TextArray te renderen.
+* Zoeken en Vervangen: Geïntegreerd via een snelle string-search in het RAM, op te roepen via een pop-up dialoogvenster dat tijdelijk in de TextArray over de code-buffer wordt getekend.
