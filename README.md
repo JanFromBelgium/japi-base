@@ -25,7 +25,7 @@ code, honest documentation, and no hidden defects.
   (AZERTY/QWERTY/QWERTZ); the active layout is chosen in `config.sys`.
 - **Storage** — a 360 KB LittleFS "flash floppy" (always available) plus an
   optional micro-SD card when inserted, behind one unified DOS-style file API
-  (`A:` = flash, `C:` = SD).
+  (`A:` = flash floppy, `C:` = SD card).
 - **Audio** — PWM stereo output with a built-in 4-channel wavetable synth
   (ADSR envelopes, volume/pan); advanced users can fill the sample buffer
   themselves.
