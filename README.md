@@ -54,25 +54,101 @@ any key:
 ## Hardware
 
 All Japi Base I/O sits on the **left** side of the Pico 2 (USB at top); the
-right side (GP16–GP28) stays completely free for your projects. VGA is driven
-by a weighted-resistor DAC; audio by PWM through a simple RC filter.
+right side (GP16–GP28) stays completely free for your projects. Build it on a
+breadboard, flash `japi_base.uf2`, and you can see and hear the demo.
+**You need a Raspberry Pi Pico 2!**
 
-| GPIO | Function | Notes |
+| GPIO | Function | Series resistor |
 |---|---|---|
-| GP0 | VGA VSYNC | 100 Ω series |
-| GP1 | VGA HSYNC | 100 Ω series |
+| GP0 | VGA VSYNC | 100 Ω |
+| GP1 | VGA HSYNC | 100 Ω |
 | GP2 / GP3 | Blue LSB / MSB | 1 kΩ / 470 Ω |
 | GP4 / GP5 | Green LSB / MSB | 1 kΩ / 470 Ω |
 | GP6 / GP7 | Red LSB / MSB | 1 kΩ / 470 Ω |
-| GP8 / GP9 | Audio L / R | PWM slice 4 A/B → 1 kΩ+3.3 nF RC + 10 µF |
-| GP10–GP13 | SD SCK / MOSI / MISO / CS | SPI1 |
-| GP14 / GP15 | PS/2 CLK / DATA | 4.7 kΩ pull-ups to 3.3 V |
-| GP16–GP28 | **free** | yours |
+| GP8 / GP9 | Audio L / R | see filter below |
+| GP10–GP13 | SD SCK / MOSI / MISO / CS (SPI1) | — |
+| GP14 / GP15 | PS/2 CLK / DATA (via level shifter) | — |
+| GP16–GP28 | **free for your code** | — |
 
-Full wiring, DAC voltage levels and the audio filter schematic are in
-**`Context Japi`** (the architecture document).
-Build the hardware on a breadboard, flash `japi_base.uf2`, and you can see and
-hear the demo. **You need a Raspberry Pi Pico 2!**
+### VGA — weighted-resistor DAC
+
+Two GPIO bits per colour drive a VGA input (75 Ω terminated); sync lines go
+straight out through a 100 Ω series resistor.
+
+```
+GP7 (Red MSB) ──[470Ω]──┐
+GP6 (Red LSB) ──[1kΩ ]──┴──> VGA pin 1  (Red)
+
+GP5 (Grn MSB) ──[470Ω]──┐
+GP4 (Grn LSB) ──[1kΩ ]──┴──> VGA pin 2  (Green)
+
+GP3 (Blu MSB) ──[470Ω]──┐
+GP2 (Blu LSB) ──[1kΩ ]──┴──> VGA pin 3  (Blue)
+
+GP1 (HSYNC)   ──[100Ω]─────> VGA pin 13 (HSYNC)
+GP0 (VSYNC)   ──[100Ω]─────> VGA pin 14 (VSYNC)
+
+Pico GND ──> all VGA ground pins (5,6,7,8,10) + the connector's metal shell
+```
+
+Per-channel voltage into 75 Ω: `00`=0.00 V, `01`=0.20 V, `10`=0.43 V,
+`11`=0.63 V (within the 0.7 V VGA spec) → 64 colours.
+
+### Audio — PWM + RC filter (per channel)
+
+```
+GP8 (L) / GP9 (R) ──[1kΩ]──┬──[10µF]──> audio out (to powered speakers)
+                            │
+                          [3.3nF]
+                            │
+                           GND
+```
+
+1 kΩ + 3.3 nF low-pass (~48 kHz cutoff) smooths the 40 kHz PWM; the 10 µF
+capacitor blocks DC. Designed for active (amplified) PC speakers.
+
+### PS/2 keyboard — via logic-level shifter
+
+The keyboard runs at 5 V; a **bidirectional logic-level shifter** sits between
+it and the Pico (3.3 V side). The open-collector pull-ups are provided on the
+level-shifter module.
+
+```
+Keyboard 5V side          Level shifter          Pico 3.3V side
+  PS/2 CLK   ───────────── HV1 ── LV1 ───────────── GP14
+  PS/2 DATA  ───────────── HV2 ── LV2 ───────────── GP15
+  +5V ── HV   ,   3.3V ── LV   ,   GND ── GND (common)
+```
+
+### Micro-SD — SPI1 (no level shifter)
+
+A micro-SD-to-SD adapter with wires soldered straight to the Pico (the card is
+3.3 V native). A 100 nF capacitor decouples the adapter's supply.
+
+```
+GP10 ── SCK      GP11 ── MOSI (DI)      GP12 ── MISO (DO)
+GP13 ── CS       3.3V ──┬── VCC         Pico GND ── GND
+                       [100nF]
+                         │
+                        GND
+```
+
+Card-detect is intentionally disabled (a background IRQ would disturb the VGA
+scanline timing). The SD card is optional — the system boots from the LittleFS
+flash floppy without it.
+
+### Reset button
+
+A momentary button pulls the Pico 2 **RUN** pin to GND, with a 100 nF
+capacitor for debounce (the standard Pico reset circuit).
+
+```
+RUN ──┬── [button] ── GND
+      │
+   [100nF]
+      │
+     GND
+```
 
 ## Timing & memory budget
 
