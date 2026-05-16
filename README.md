@@ -51,7 +51,8 @@ any key:
    64-colour palette (public domain, Google Art Project).
 4. **API quick reference** — live keyboard test and code examples.
 
-Running on a real VGA monitor:
+Running on a real VGA monitor. *The picture on the monitor is razor-sharp;
+any blur in these photos is the camera, not the hardware.*
 
 ![Showcase page](images/demo-showcase.jpg)
 *Showcase: palette, character set, waveform bitmap and 4-channel music.*
