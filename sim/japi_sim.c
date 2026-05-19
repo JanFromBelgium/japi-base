@@ -12,6 +12,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <termios.h>
+#include <sys/stat.h>
 #include "japi_base.h"
 #include "japi_sim.h"
 
@@ -222,12 +223,72 @@ void japi_sound_note_on(int c){(void)c;}
 void japi_sound_note_off(int c){(void)c;}
 void japi_sound_off(void){}
 
-/* --- File I/O: stdio-backed in step 6 --- */
-bool japi_fopen(japi_file_t *f,const char *p,uint8_t m){(void)f;(void)p;(void)m;return false;}
-int  japi_fread(japi_file_t *f,void *b,int n){(void)f;(void)b;(void)n;return -1;}
-int  japi_fwrite(japi_file_t *f,const void *b,int n){(void)f;(void)b;(void)n;return -1;}
-void japi_fclose(japi_file_t *f){(void)f;}
-bool japi_remove(const char *p){(void)p;return false;}
-bool japi_mkdir(const char *p){(void)p;return false;}
-bool japi_exists(const char *p){(void)p;return false;}
-int  japi_fsize(japi_file_t *f){(void)f;return -1;}
+/* --- File I/O over stdio ---
+ * Drive letters map to local directories under the working dir:
+ *   A: -> simdisk_A/   (flash floppy)     C: -> simdisk_C/   (SD card)
+ * The FILE* is stashed in the opaque japi_file_t union (>=64 bytes here).
+ * f->type: 0 = closed, 1 = open.
+ */
+static int sim_map_path(const char *p, char *out, int outsz) {
+    if (p[0] && p[1] == ':') {
+        char d = p[0];
+        const char *dir = (d == 'A' || d == 'a') ? "simdisk_A"
+                        : (d == 'C' || d == 'c') ? "simdisk_C" : 0;
+        if (!dir) return 0;
+        mkdir(dir, 0777);                       /* ensure the "disk" exists */
+        snprintf(out, outsz, "%s/%s", dir, p + 2);
+        return 1;
+    }
+    return 0;
+}
+
+bool japi_fopen(japi_file_t *f, const char *p, uint8_t m) {
+    char path[512];
+    if (!sim_map_path(p, path, sizeof path)) { f->type = 0; return false; }
+    const char *mode = (m & JAPI_WRITE)  ? "wb"
+                     : (m & JAPI_APPEND) ? "ab" : "rb";
+    FILE *fp = fopen(path, mode);
+    if (!fp) { f->type = 0; return false; }
+    *(FILE **)&f->fat = fp;
+    f->type = 1;
+    return true;
+}
+
+int japi_fread(japi_file_t *f, void *b, int n) {
+    if (f->type != 1) return -1;
+    return (int)fread(b, 1, (size_t)n, *(FILE **)&f->fat);
+}
+
+int japi_fwrite(japi_file_t *f, const void *b, int n) {
+    if (f->type != 1) return -1;
+    return (int)fwrite(b, 1, (size_t)n, *(FILE **)&f->fat);
+}
+
+void japi_fclose(japi_file_t *f) {
+    if (f->type == 1) { fclose(*(FILE **)&f->fat); f->type = 0; }
+}
+
+bool japi_remove(const char *p) {
+    char path[512];
+    return sim_map_path(p, path, sizeof path) && remove(path) == 0;
+}
+
+bool japi_mkdir(const char *p) {
+    char path[512];
+    return sim_map_path(p, path, sizeof path) && mkdir(path, 0777) == 0;
+}
+
+bool japi_exists(const char *p) {
+    char path[512]; struct stat st;
+    return sim_map_path(p, path, sizeof path) && stat(path, &st) == 0;
+}
+
+int japi_fsize(japi_file_t *f) {
+    if (f->type != 1) return -1;
+    FILE *fp = *(FILE **)&f->fat;
+    long cur = ftell(fp);
+    if (fseek(fp, 0, SEEK_END) != 0) return -1;
+    long sz = ftell(fp);
+    fseek(fp, cur, SEEK_SET);
+    return (int)sz;
+}

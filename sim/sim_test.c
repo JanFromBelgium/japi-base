@@ -33,7 +33,26 @@ int main(void) {
     for (int i = 0; i < 10; i++) ok &= (japi_get_char() == (uint16_t)('0' + i));
     CHECK(ok, "FIFO order preserved for 10 keys");
 
-    if (fails == 0) { printf("PASS: keyboard layer (step 4)\n"); return 0; }
+    /* --- File I/O (step 6): write, exists, size, read back, remove --- */
+    japi_file_t fw;
+    CHECK(japi_fopen(&fw, "A:simtest.txt", JAPI_WRITE), "open A: for write");
+    CHECK(japi_fwrite(&fw, "hello", 5) == 5, "wrote 5 bytes");
+    japi_fclose(&fw);
+    CHECK(japi_exists("A:simtest.txt"), "file exists after write");
+
+    japi_file_t fr;
+    CHECK(japi_fopen(&fr, "A:simtest.txt", JAPI_READ), "open A: for read");
+    CHECK(japi_fsize(&fr) == 5, "fsize == 5");
+    char rb[16] = {0};
+    CHECK(japi_fread(&fr, rb, 15) == 5, "read 5 bytes back");
+    CHECK(rb[0]=='h' && rb[4]=='o' && rb[5]==0, "content round-trips");
+    japi_fclose(&fr);
+
+    CHECK(japi_remove("A:simtest.txt"), "remove file");
+    CHECK(!japi_exists("A:simtest.txt"), "gone after remove");
+    CHECK(!japi_fopen(&fr, "B:nope.txt", JAPI_READ), "unknown drive fails");
+
+    if (fails == 0) { printf("PASS: keyboard + file I/O (steps 4-6)\n"); return 0; }
     printf("%d check(s) failed\n", fails);
     return 1;
 }
