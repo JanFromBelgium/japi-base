@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "japi_base.h"
+#include "japi_sim.h"
 
 /* --- ANSI terminal renderer ---------------------------------------------
  * Renders the 127x64 text buffer with truecolour SGR escapes. 2-bit channel
@@ -101,9 +102,33 @@ uint8_t *japi_bitmap_buffer(void){return 0;}
 int      japi_bitmap_width(void){return 0;}
 int      japi_bitmap_height(void){return 0;}
 
-/* --- Keyboard: ring buffer filled in step 4 --- */
-bool     japi_has_char(void){return false;}
-uint16_t japi_get_char(void){return 0;}
+/* --- Keyboard ring buffer (same model as the Pico's kbd buffer) --- */
+#define SIM_KBD_SIZE 256
+static uint16_t sim_kbd[SIM_KBD_SIZE];
+static int sim_kbd_head = 0, sim_kbd_tail = 0;
+
+void sim_key_push(uint16_t code) {
+    int next = (sim_kbd_head + 1) % SIM_KBD_SIZE;
+    if (next != sim_kbd_tail) {           /* drop if full, like the hardware */
+        sim_kbd[sim_kbd_head] = code;
+        sim_kbd_head = next;
+    }
+}
+
+void sim_type(const char *s) {
+    for (; *s; s++) sim_key_push((uint8_t)*s);
+}
+
+bool japi_has_char(void) {
+    return sim_kbd_head != sim_kbd_tail;
+}
+
+uint16_t japi_get_char(void) {
+    if (sim_kbd_head == sim_kbd_tail) return 0;
+    uint16_t c = sim_kbd[sim_kbd_tail];
+    sim_kbd_tail = (sim_kbd_tail + 1) % SIM_KBD_SIZE;
+    return c;
+}
 
 /* --- Sound: no-ops on host --- */
 void japi_play(uint8_t n,uint16_t d){(void)n;(void)d;}
