@@ -9,7 +9,51 @@
  */
 #include <string.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include "japi_base.h"
+
+/* --- ANSI terminal renderer ---------------------------------------------
+ * Renders the 127x64 text buffer with truecolour SGR escapes. 2-bit channel
+ * (R=bits5-4, G=3-2, B=1-0 of the 6-bit colour) maps to 0/81/174/255, the
+ * same levels as tools/gen_starry.py. SGR is only re-emitted when fg/bg
+ * changes, to keep the byte count down. Needs a terminal of at least
+ * 127 columns x 65 rows (Jan's vertical screen is ideal); a smaller window
+ * just wraps. Presented on vga_wait_vblank() — the natural frame boundary,
+ * so editor/app code stays unchanged across sim and hardware.
+ */
+static const int LVL[4] = {0, 81, 174, 255};
+static int sim_term_ready = 0;
+
+static void sim_term_restore(void) {
+    fputs("\033[0m\033[?25h\033[?1049l", stdout);  /* SGR reset, cursor on, leave alt-screen */
+    fflush(stdout);
+}
+
+static void sim_render(void) {
+    if (!sim_term_ready) {
+        fputs("\033[?1049h\033[?25l", stdout);     /* alt-screen, hide cursor */
+        atexit(sim_term_restore);
+        sim_term_ready = 1;
+    }
+    fputs("\033[H", stdout);                       /* cursor home */
+    int pf = -1, pb = -1;                          /* previous fg/bg (force first SGR) */
+    for (int r = 0; r < VGA_ROWS; r++) {
+        for (int c = 0; c < VGA_COLS; c++) {
+            vga_char_t ch = vga_text_buffer[r][c];
+            if (ch.fg != pf || ch.bg != pb) {
+                printf("\033[38;2;%d;%d;%dm\033[48;2;%d;%d;%dm",
+                       LVL[(ch.fg >> 4) & 3], LVL[(ch.fg >> 2) & 3], LVL[ch.fg & 3],
+                       LVL[(ch.bg >> 4) & 3], LVL[(ch.bg >> 2) & 3], LVL[ch.bg & 3]);
+                pf = ch.fg; pb = ch.bg;
+            }
+            unsigned char g = ch.code;
+            putchar((g >= 32 && g < 127) ? g : ' ');
+        }
+        fputs("\033[0m\r\n", stdout);
+        pf = pb = -1;                              /* reset attrs at line end */
+    }
+    fflush(stdout);
+}
 
 /* --- Shared state (same as the platform exposes) --- */
 vga_char_t vga_text_buffer[VGA_ROWS][VGA_COLS];
@@ -43,7 +87,7 @@ void vga_print(int row, int col, const char *str, uint8_t fg, uint8_t bg) {
         vga_set_char(row, col + i, (uint8_t)str[i], fg, bg);
 }
 
-void vga_wait_vblank(void) { /* no-op on host (step 3 may add a tiny sleep) */ }
+void vga_wait_vblank(void) { sim_render(); }  /* present the frame on host */
 
 void vga_redefine_char(uint8_t code, const uint8_t bitmap[FONT_H]) {
     (void)code; (void)bitmap;   /* font not modelled in the text simulator */
