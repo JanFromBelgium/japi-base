@@ -1,61 +1,62 @@
-/* Step 3 smoke test: exercise the text API + ANSI renderer.
-   Shows all 64 colours as fg/bg swatches, a framed title, and an ASCII
-   border, then presents one frame via vga_wait_vblank().
-   Run it in a terminal of >=127x65 to view; ESC handling comes in step 5. */
+/* Step 5 interactive demo: live keyboard via the platform API.
+   Type text; special keys are shown by name; ESC quits.
+   Run in a terminal of >=127x65. Same source would run on the Pico. */
+#define _POSIX_C_SOURCE 199309L   /* nanosleep */
 #include <stdio.h>
+#include <string.h>
+#include <time.h>
 #include "japi_base.h"
+
+static const char *keyname(uint16_t k) {
+    switch (k) {
+        case JAPI_KEY_UP:    return "UP";    case JAPI_KEY_DOWN:  return "DOWN";
+        case JAPI_KEY_LEFT:  return "LEFT";  case JAPI_KEY_RIGHT: return "RIGHT";
+        case JAPI_KEY_HOME:  return "HOME";  case JAPI_KEY_END:   return "END";
+        case JAPI_KEY_PGUP:  return "PGUP";  case JAPI_KEY_PGDN:  return "PGDN";
+        case JAPI_KEY_INSERT:return "INSERT";case JAPI_KEY_DELETE:return "DELETE";
+        case JAPI_KEY_ESCAPE:return "ESCAPE";
+    }
+    return 0;
+}
 
 int main(void) {
     japi_init();
-    vga_clear(VGA_WHITE, VGA_BLACK);
-
-    /* ASCII frame around the whole 127x64 screen */
+    vga_clear(VGA_WHITE, VGA_DARK_BLUE);
     for (int c = 0; c < VGA_COLS; c++) {
-        vga_set_char(0, c, '-', VGA_CYAN, VGA_BLACK);
-        vga_set_char(VGA_ROWS - 1, c, '-', VGA_CYAN, VGA_BLACK);
+        vga_set_char(0, c, ' ', VGA_BLACK, VGA_CYAN);
+        vga_set_char(VGA_ROWS - 1, c, ' ', VGA_BLACK, VGA_CYAN);
     }
-    for (int r = 0; r < VGA_ROWS; r++) {
-        vga_set_char(r, 0, '|', VGA_CYAN, VGA_BLACK);
-        vga_set_char(r, VGA_COLS - 1, '|', VGA_CYAN, VGA_BLACK);
+    vga_print(0, 2, "Japi Base simulator - step 5: live keyboard", VGA_BLACK, VGA_CYAN);
+    vga_print(VGA_ROWS - 1, 2, "Type text  |  arrows/Home/End/PgUp/PgDn  |  ESC = quit",
+              VGA_BLACK, VGA_CYAN);
+    vga_print(3, 3, "Typed:", VGA_YELLOW, VGA_DARK_BLUE);
+    vga_print(5, 3, "Last special key:", VGA_YELLOW, VGA_DARK_BLUE);
+
+    char line[120]; int len = 0; line[0] = 0;
+    struct timespec ts = { 0, 10 * 1000 * 1000 };  /* 10 ms */
+
+    for (;;) {
+        vga_wait_vblank();                          /* present + pump input */
+        while (japi_has_char()) {
+            uint16_t k = japi_get_char();
+            if (k == JAPI_KEY_ESCAPE) return 0;
+            const char *nm = keyname(k);
+            if (nm) {
+                char buf[40];
+                snprintf(buf, sizeof buf, "%-10s   ", nm);
+                vga_print(5, 21, buf, VGA_CYAN, VGA_DARK_BLUE);
+            } else if (k == 0x0008) {               /* backspace */
+                if (len > 0) { line[--len] = 0; vga_set_char(3, 10 + len, ' ',
+                                 VGA_WHITE, VGA_DARK_BLUE); }
+            } else if (k == 0x000D) {               /* enter: clear the line */
+                for (int i = 0; i < len; i++) vga_set_char(3, 10 + i, ' ',
+                                 VGA_WHITE, VGA_DARK_BLUE);
+                len = 0; line[0] = 0;
+            } else if (k >= 32 && k < 127 && len < (int)sizeof(line) - 1) {
+                line[len++] = (char)k; line[len] = 0;
+                vga_set_char(3, 10 + len - 1, (uint8_t)k, VGA_WHITE, VGA_DARK_BLUE);
+            }
+        }
+        nanosleep(&ts, 0);
     }
-
-    vga_print(2, 3, "Japi Base simulator - step 3: ANSI renderer (127x64, 64 colours)",
-              VGA_YELLOW, VGA_BLACK);
-
-    /* 64-colour palette: 4 rows x 16, each cell shows its hex code in fg too */
-    vga_print(4, 3, "Background swatches (all 64 colours):", VGA_WHITE, VGA_BLACK);
-    for (int col6 = 0; col6 < 64; col6++) {
-        int rr = 5 + col6 / 16;
-        int cc = 3 + (col6 % 16) * 4;
-        char hex[4];
-        snprintf(hex, sizeof(hex), "%02X", col6);
-        vga_set_char(rr, cc,     ' ', VGA_WHITE, (uint8_t)col6);
-        vga_set_char(rr, cc + 1, hex[0], VGA_WHITE, (uint8_t)col6);
-        vga_set_char(rr, cc + 2, hex[1], VGA_WHITE, (uint8_t)col6);
-    }
-
-    vga_print(11, 3, "Foreground swatches (all 64 colours):", VGA_WHITE, VGA_BLACK);
-    for (int col6 = 0; col6 < 64; col6++) {
-        int rr = 12 + col6 / 16;
-        int cc = 3 + (col6 % 16) * 4;
-        vga_set_char(rr, cc,     '#', (uint8_t)col6, VGA_BLACK);
-        vga_set_char(rr, cc + 1, '#', (uint8_t)col6, VGA_BLACK);
-        vga_set_char(rr, cc + 2, '#', (uint8_t)col6, VGA_BLACK);
-    }
-
-    vga_print(18, 3, "Named colours:", VGA_WHITE, VGA_BLACK);
-    vga_print(19, 3, "RED",     VGA_RED,     VGA_BLACK);
-    vga_print(19, 10, "GREEN",  VGA_GREEN,   VGA_BLACK);
-    vga_print(19, 18, "BLUE",   VGA_BLUE,    VGA_BLACK);
-    vga_print(19, 25, "YELLOW", VGA_YELLOW,  VGA_BLACK);
-    vga_print(19, 34, "CYAN",   VGA_CYAN,    VGA_BLACK);
-    vga_print(19, 41, "MAGENTA",VGA_MAGENTA, VGA_BLACK);
-
-    vga_print(VGA_ROWS - 2, 3, "Same source compiles for the Pico - this is the host backend.",
-              VGA_GREEN, VGA_BLACK);
-
-    vga_print(VGA_ROWS - 3, 3, "Press Enter to exit...", VGA_WHITE, VGA_BLACK);
-    vga_wait_vblank();          /* present one frame */
-    getchar();                  /* hold the alt-screen so it stays visible */
-    return 0;
 }
