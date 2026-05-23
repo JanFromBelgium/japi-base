@@ -1,5 +1,6 @@
 build/
 Pictures/
+KiCad/
 *.uf2
 *.elf
 *.o
