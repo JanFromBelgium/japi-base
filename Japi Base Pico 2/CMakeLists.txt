@@ -9,7 +9,7 @@ project(japi_base C CXX ASM)
 pico_sdk_init()
 
 add_executable(japi_base
-    main.c
+    demo.c
     japi_base.c
     third_party_libs.c
 )

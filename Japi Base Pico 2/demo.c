@@ -4,7 +4,7 @@
 #include <math.h>
 #include "pico/stdlib.h"
 #include "japi_base.h"
-#include "starry_image.h"
+#include "demo.h"
 
 // =========================================================================
 // CHARACTER CODES

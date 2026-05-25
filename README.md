@@ -41,7 +41,7 @@ code, honest documentation, and no hidden defects.
 **BOOTSEL** while plugging in your Pico 2, and copy the file onto the
 `RP2350` drive that appears. (Or build it yourself — see *Building* below.)
 
-The bundled firmware (`Japi Base Pico 2/main.c`) cycles through, advancing on
+The bundled firmware (`Japi Base Pico 2/demo.c`) cycles through, advancing on
 any key:
 
 1. **Showcase** — colour palette, full character set, windows, text colours,
@@ -248,12 +248,10 @@ write freely, then present once per frame.
 
 | File | Purpose |
 |---|---|
-| `main.c` | Demo application: showcase, bouncing balls, Starry Night, API reference |
-| `japi_base.c` / `.h` | Core engine — VGA, keyboard, audio synth, file I/O, hardware pin map |
-| `japi_base.pio` | PIO assembly programs that drive the VGA pixel clock |
+| `japi_base.c` / `.h` / `.pio` | The core engine: VGA output, keyboard input, audio output and file I/O |
+| `demo.c` / `demo.h` | Demo application (showcase, bouncing balls, Starry Night, API reference) and its dithered demo image |
 | `third_party_libs.c` / `.h` | FatFs (ChaN), SD-over-SPI driver (carlk3), littlefs, pico-lfs — all consolidated, with per-component licence headers and the SD/SPI pin glue at the bottom |
 | `font_8x12.h` | 8×12 bitmap font, CP437 + box-drawing glyphs |
-| `starry_image.h` | *Starry Night* demo image, dithered into the 64-colour palette |
 | `japi_kbd_defaults.h` | Built-in PS/2 keyboard layouts (AZERTY/QWERTY/QWERTZ) |
 | `CMakeLists.txt`, `pico_sdk_import.cmake` | Build configuration / Pico SDK loader |
 
