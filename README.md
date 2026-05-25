@@ -239,11 +239,24 @@ write freely, then present once per frame.
 
 | Path | Contents |
 |---|---|
-| `Japi Base Pico 2/` | Firmware: VGA/keyboard/audio/storage engine + demo app |
-| `Japi Base Pico 2/FatFs_SPI/`, `pico-lfs/` | Vendored third-party libraries |
-| `tools/` | `gen_starry.py` (image → C array) + source image; audio prototype |
-| `Font Editor/` | Linux-side font design tool (BDF ↔ C header) |
-| `Context Japi`, `Planning Japi` | Architecture document and project plan |
+| `Japi Base Pico 2/` | The complete Pico 2 firmware (engine + demo) |
+| `images/` | Screenshots and GIFs used in this README |
+| `LICENSE` | GNU GPL v3 |
+| `README.md` | This file |
+
+### Firmware files (`Japi Base Pico 2/`)
+
+| File | Purpose |
+|---|---|
+| `main.c` | Demo application: showcase, bouncing balls, Starry Night, API reference |
+| `japi_base.c` / `.h` | Core engine — VGA, keyboard, audio synth, file I/O, hardware pin map |
+| `japi_base.pio` | PIO assembly programs that drive the VGA pixel clock |
+| `third_party_libs.c` / `.h` | FatFs (ChaN), SD-over-SPI driver (carlk3), littlefs, pico-lfs — all consolidated, with per-component licence headers and the SD/SPI pin glue at the bottom |
+| `font_8x12.h` | 8×12 bitmap font, CP437 + box-drawing glyphs |
+| `starry_image.h` | *Starry Night* demo image, dithered into the 64-colour palette |
+| `japi_kbd_defaults.h` | Built-in PS/2 keyboard layouts (AZERTY/QWERTY/QWERTZ) |
+| `my_debug.h` | Debug-print macros |
+| `CMakeLists.txt`, `pico_sdk_import.cmake` | Build configuration / Pico SDK loader |
 
 The previous Pico 1 (RP2040) prototype is archived outside this repository.
 
