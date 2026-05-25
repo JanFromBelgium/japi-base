@@ -12,13 +12,7 @@ add_executable(japi_base
     main.c
     japi_base.c
     hw_config.c
-    FatFs_SPI/sd_driver/sd_card.c
-    FatFs_SPI/sd_driver/spi.c
-    FatFs_SPI/sd_driver/sd_spi.c
-    FatFs_SPI/sd_driver/crc.c
-    FatFs_SPI/ff15/source/diskio.c
-    FatFs_SPI/ff15/source/ff.c
-    FatFs_SPI/ff15/source/ffunicode.c
+    third_party_libs.c
 )
 
 add_subdirectory(pico-lfs)
@@ -44,9 +38,6 @@ target_link_libraries(japi_base
 
 target_include_directories(japi_base PRIVATE
     ${CMAKE_CURRENT_LIST_DIR}
-    ${CMAKE_CURRENT_LIST_DIR}/FatFs_SPI
-    ${CMAKE_CURRENT_LIST_DIR}/FatFs_SPI/sd_driver
-    ${CMAKE_CURRENT_LIST_DIR}/FatFs_SPI/ff15/source
 )
 
 target_compile_definitions(japi_base PRIVATE

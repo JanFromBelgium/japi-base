@@ -1,4 +1,4 @@
-#include "hw_config.h"
+#include "third_party_libs.h"
 
 // --- SPI bus configuration ---
 spi_t spi = {

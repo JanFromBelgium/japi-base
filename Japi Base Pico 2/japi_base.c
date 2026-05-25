@@ -14,8 +14,7 @@
 #include <math.h>
 #include "font_8x12.h"
 #include "japi_base.pio.h"
-#include "ff.h"
-#include "sd_card.h"
+#include "third_party_libs.h"
 #include "pico_lfs.h"
 #include "japi_kbd_defaults.h"
 

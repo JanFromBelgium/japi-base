@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-#include "ff.h"
+#include "third_party_libs.h"
 
 // =========================================================================
 // SCREEN DIMENSIONS
