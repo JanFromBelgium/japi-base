@@ -255,7 +255,6 @@ write freely, then present once per frame.
 | `font_8x12.h` | 8×12 bitmap font, CP437 + box-drawing glyphs |
 | `starry_image.h` | *Starry Night* demo image, dithered into the 64-colour palette |
 | `japi_kbd_defaults.h` | Built-in PS/2 keyboard layouts (AZERTY/QWERTY/QWERTZ) |
-| `my_debug.h` | Debug-print macros |
 | `CMakeLists.txt`, `pico_sdk_import.cmake` | Build configuration / Pico SDK loader |
 
 The previous Pico 1 (RP2040) prototype is archived outside this repository.
