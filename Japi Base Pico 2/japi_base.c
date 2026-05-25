@@ -42,7 +42,13 @@ static uint8_t vga_line_buf_1[VGA_WIDTH] __attribute__((section(".scratch_y")))
                                          __attribute__((aligned(4)));
 static uint32_t nibble_expand[16] __attribute__((section(".data")));
 
+/* Double-buffered text buffer. Apps write to vga_text_buffer; the scanline
+   render reads from vga_text_active. vga_wait_vblank() copies one into the
+   other during the vertical blank, so each frame is shown atomically and
+   render time can exceed one frame without tearing. */
 vga_char_t vga_text_buffer[VGA_ROWS][VGA_COLS];
+static vga_char_t vga_text_active[VGA_ROWS][VGA_COLS];
+
 uint8_t japi_keymap[768] = {0};
 
 static int dma_chan_0;
@@ -325,7 +331,7 @@ static void __not_in_flash_func(vga_render_line)(uint8_t *dest, int line_idx) {
         }
     }
 
-    vga_char_t *curr_char = &vga_text_buffer[char_row][0];
+    vga_char_t *curr_char = &vga_text_active[char_row][0];
     uint32_t   *p32       = (uint32_t *)dest;
 
     // --- Text segment 1: cols [0, bm_start) ---
@@ -361,7 +367,7 @@ static void __not_in_flash_func(vga_render_line)(uint8_t *dest, int line_idx) {
             }
         }
         // Reposition for text segment 2
-        curr_char = &vga_text_buffer[char_row][bm_end];
+        curr_char = &vga_text_active[char_row][bm_end];
         p32       = (uint32_t *)(dest + bm_end * FONT_W);
     }
 
@@ -643,6 +649,10 @@ void vga_print(int row, int col, const char *str, uint8_t fg, uint8_t bg) {
 
 void vga_wait_vblank(void) {
     while (scanline_counter < VGA_HEIGHT) tight_loop_contents();
+    /* Vblank started — scan is past the visible region. Promote the app's
+       write buffer to the active (read-by-scanline) buffer. ~32 KB, well
+       within the vertical blanking window. */
+    memcpy(vga_text_active, vga_text_buffer, sizeof(vga_text_active));
 }
 
 void vga_redefine_char(uint8_t code, const uint8_t bitmap[FONT_H]) {
