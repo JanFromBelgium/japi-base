@@ -15,8 +15,6 @@ add_executable(japi_base
     third_party_libs.c
 )
 
-add_subdirectory(pico-lfs)
-
 pico_generate_pio_header(japi_base ${CMAKE_CURRENT_LIST_DIR}/japi_base.pio)
 
 pico_enable_stdio_uart(japi_base 1)
@@ -33,7 +31,6 @@ target_link_libraries(japi_base
     hardware_spi
     hardware_flash
     pico_multicore
-    pico-lfs
 )
 
 target_include_directories(japi_base PRIVATE

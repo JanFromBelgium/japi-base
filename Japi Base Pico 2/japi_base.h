@@ -338,8 +338,6 @@ void japi_sound_off(void);
 // Drive letters:  A: = LittleFS flash floppy (360K, always available)
 //                 C: = SD card (available if card is inserted)
 
-#include "lfs.h"
-
 typedef struct {
     uint8_t type;
     union {
