@@ -78,7 +78,7 @@ static bool ps2_gui_r       = false;
 static bool ps2_menu        = false;
 
 static bool ps2_caps_lock   = false;
-static bool ps2_num_lock    = false;
+static bool ps2_num_lock    = true;   // default ON (matches PC convention); toggle with NumLock key
 static bool ps2_scroll_lock = false;
 
 #define ps2_shift_any  (ps2_shift_l || ps2_shift_r)
@@ -560,9 +560,12 @@ static void __not_in_flash_func(vga_dma_handler)(void) {
 
             result = (index < 768) ? japi_keymap[index] : 0;
             if (ps2_ctrl_any) {
-                // Ctrl + letter -> JAPI_KEY_CTRL(uppercase letter), with
-                // conventional exceptions: Ctrl+H/I/M still emit BS/TAB/ENTER
-                // so those keys behave like their dedicated counterparts.
+                // Ctrl + letter   -> JAPI_KEY_CTRL(uppercase letter), with
+                //   conventional exceptions: Ctrl+H/I/M still emit BS/TAB/ENTER
+                //   so those keys behave like their dedicated counterparts.
+                // Ctrl + any other printable ASCII -> JAPI_KEY_CTRL_BASE | c
+                //   (so e.g. Ctrl+_, Ctrl+/, Ctrl+1 are distinguishable from the
+                //   plain character by the application).
                 char up = 0;
                 if (result >= 'a' && result <= 'z')      up = result - 32;
                 else if (result >= 'A' && result <= 'Z') up = result;
@@ -570,6 +573,7 @@ static void __not_in_flash_func(vga_dma_handler)(void) {
                 else if (up == 'I') result = JAPI_KEY_TAB;
                 else if (up == 'M') result = JAPI_KEY_ENTER;
                 else if (up)        result = JAPI_KEY_CTRL_BASE | up;
+                else if (result >= 0x20 && result < 0x80) result = JAPI_KEY_CTRL_BASE | result;
             }
             if (!ps2_ctrl_any && ps2_caps_lock) {
                 if (result >= 'a' && result <= 'z') result -= 32;

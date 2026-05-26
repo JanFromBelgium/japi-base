@@ -169,8 +169,11 @@
 #define JAPI_KEY_ALT_BASE   0x0200
 #define JAPI_KEY_ALT(c)     (JAPI_KEY_ALT_BASE | (uint16_t)(c))
 
-// Ctrl + letter = application shortcut (Ctrl+S = save, Ctrl+C/V/X = clipboard).
-// Code = JAPI_KEY_CTRL_BASE | uppercase letter, e.g. JAPI_KEY_CTRL('S') = 0x0353.
+// Ctrl + printable ASCII = application shortcut.
+// Code = JAPI_KEY_CTRL_BASE | character, e.g. JAPI_KEY_CTRL('S') = 0x0353,
+// JAPI_KEY_CTRL('_') = 0x035F, JAPI_KEY_CTRL('1') = 0x0331.
+// Letters are normalised to uppercase before encoding (Ctrl+s and Ctrl+S
+// both yield 0x0353). Symbols and digits are passed through as-is.
 // Conventional exceptions: Ctrl+H/I/M keep emitting BACKSPACE / TAB / ENTER
 // (matches terminal convention and what the user expects when pressing those
 // keys instead of the dedicated key).

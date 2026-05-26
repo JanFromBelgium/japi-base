@@ -813,14 +813,27 @@ static void page_api(void) {
         snprintf(hex_buf, sizeof(hex_buf), "0x%04X    ", c);
         vga_print(51, R1 + 35, hex_buf, VGA_CYAN, BG);
 
-        if (c >= 0x20 && c < 0x100) {
+        // Translate numpad keys (NumLock ON) to their ASCII equivalents so the
+        // typing panel and "Char:" label show '5' rather than (special). The
+        // Hex: line above keeps the original code so the underlying value is
+        // still visible.
+        uint16_t disp = c;
+        if (c >= JAPI_KEY_NUM0 && c <= JAPI_KEY_NUM9)  disp = '0' + (c - JAPI_KEY_NUM0);
+        else if (c == JAPI_KEY_NUM_DOT)   disp = '.';
+        else if (c == JAPI_KEY_NUM_PLUS)  disp = '+';
+        else if (c == JAPI_KEY_NUM_MINUS) disp = '-';
+        else if (c == JAPI_KEY_NUM_MUL)   disp = '*';
+        else if (c == JAPI_KEY_NUM_DIV)   disp = '/';
+        else if (c == JAPI_KEY_NUM_ENTER) disp = JAPI_KEY_ENTER;
+
+        if (disp >= 0x20 && disp < 0x100) {
             char ch_buf[16];
-            snprintf(ch_buf, sizeof(ch_buf), "'%c'       ", (char)c);
+            snprintf(ch_buf, sizeof(ch_buf), "'%c'       ", (char)disp);
             vga_print(51, R1 + 8, ch_buf, VGA_GREEN, BG);
             vga_print(52, R1 + 8, "ASCII          ", VGA_WHITE, BG);
-        } else if (c < 0x20 && c > 0) {
+        } else if (disp < 0x20 && disp > 0) {
             char ch_buf[16];
-            snprintf(ch_buf, sizeof(ch_buf), "Ctrl+%c    ", (char)(c + 'A' - 1));
+            snprintf(ch_buf, sizeof(ch_buf), "Ctrl+%c    ", (char)(disp + 'A' - 1));
             vga_print(51, R1 + 8, ch_buf, VGA_MAGENTA, BG);
             vga_print(52, R1 + 8, "Control code   ", VGA_WHITE, BG);
         } else {
@@ -830,7 +843,7 @@ static void page_api(void) {
 
         if (c == JAPI_KEY_ESCAPE) break;
 
-        if (c == JAPI_KEY_ENTER || c == 0x0D) {
+        if (disp == JAPI_KEY_ENTER || disp == 0x0D) {
             type_col = type_left;
             type_row++;
             if (type_row > type_bottom) {
@@ -844,14 +857,14 @@ static void page_api(void) {
             continue;
         }
 
-        if ((c == JAPI_KEY_BACKSPACE || c == 0x08) && type_col > type_left) {
+        if ((disp == JAPI_KEY_BACKSPACE || disp == 0x08) && type_col > type_left) {
             type_col--;
             vga_set_char(type_row, type_col, ' ', VGA_WHITE, 0x02);
             continue;
         }
 
-        if (c >= 0x20 && c < 0x100) {
-            vga_set_char(type_row, type_col, (char)c, VGA_WHITE, 0x02);
+        if (disp >= 0x20 && disp < 0x100) {
+            vga_set_char(type_row, type_col, (char)disp, VGA_WHITE, 0x02);
             type_col++;
             if (type_col > type_right) {
                 type_col = type_left;
