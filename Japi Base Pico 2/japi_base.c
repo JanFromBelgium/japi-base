@@ -990,8 +990,8 @@ void japi_init(void) {
     // wires, breadboards, USB-to-PS/2 bridges) reads as a false falling edge
     // and corrupts the bit stream. Slowing the SM to ~160 kHz low-pass filters
     // those glitches while still oversampling the 16.7 kHz max PS/2 clock ~10x,
-    // so every real edge is caught. Thanks to forum user (Raspberry Pi forum)
-    // for diagnosing this with a USB-to-PS/2 bridge.
+    // so every real edge is caught. Thanks to Raspberry Pi forum user
+    // PeterStansfeld for diagnosing this with a USB-to-PS/2 bridge.
     sm_config_set_clkdiv(&c_ps2, clock_get_hz(clk_sys) / 160000);
     sm_config_set_in_shift(&c_ps2, true, true, 11);
     pio_sm_init(pio, 2, offset_ps2, &c_ps2);
