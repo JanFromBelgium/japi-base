@@ -9,9 +9,9 @@ programs**.
 The goal is a system that is both educational and genuinely usable: clear
 code, honest documentation, and no hidden defects.
 
-> **Status:** the hardware platform (VGA, PS/2 keyboard, SD card, audio) is
-> working and verified on real hardware. A code editor and a BASIC are planned
-> as next steps.
+> **Status:** the hardware platform (VGA, PS/2 keyboard, SD card, audio and a
+> switchable CPU clock) is working and verified on real hardware. A code editor
+> and a BASIC are planned as next steps.
 
 ## Features
 
@@ -31,6 +31,12 @@ code, honest documentation, and no hidden defects.
 - **Audio** — PWM stereo output with a built-in 4-channel wavetable synth
   (ADSR envelopes, volume/pan); advanced users can fill the sample buffer
   themselves.
+- **Switchable CPU clock** — three voltage-tracked speeds, selectable at runtime
+  and persisted in flash: 260 MHz (1.15 V), the default 324 MHz (1.20 V) and an
+  opt-in 390 MHz (1.30 V) up-size. The VGA dot clock stays 65 MHz on every tier
+  so the picture never changes. A board that cannot hold a speed is caught by the
+  watchdog and steps down one tier on its own (390→324, 324→260) — no re-flash
+  and no bricking.
 - **Free for your code** — Core 0 and the unused PIOs/peripherals are entirely
   yours; the base I/O engine lives on Core 1 + PIO0.
 
@@ -52,6 +58,10 @@ any key:
 3. **The Starry Night** — Van Gogh, Floyd–Steinberg dithered into the
    64-colour palette (public domain, Google Art Project).
 4. **API quick reference** — live keyboard test and code examples.
+5. **CPU benchmark** — a fixed integer workload timed with a clock-independent
+   timer; press **Shift+T** / **t** to up- and down-size the CPU clock and watch
+   the throughput scale across 260 / 324 / 390 MHz while the checksum stays
+   identical (proof the silicon is still computing correctly at speed).
 
 Running on a real VGA monitor. *The picture on the monitor is razor-sharp;
 any blur in these photos is the camera, not the hardware.*
@@ -235,6 +245,24 @@ take longer than a single frame without consequence. The convention is
 familiar from SDL's `SDL_RenderPresent` or OpenGL's `glSwapBuffers`:
 write freely, then present once per frame.
 
+### Switching the CPU clock
+
+The CPU speed is part of the API. `japi_set_cpu_clock(mhz)` stores the choice and
+reboots to apply it cleanly (swapping the VGA program so the picture is
+unchanged); after boot you can read back what the board is actually running:
+
+```c
+int mhz = japi_get_cpu_clock_mhz();      // 260, 324 or 390
+if (japi_clock_was_reverted())           // the requested tier was unstable here,
+    mhz = japi_clock_reverted_from();    // so the watchdog stepped down a tier
+
+japi_set_cpu_clock(390);                 // persist + reboot into the high gear
+```
+
+A board that cannot hold the requested speed is rescued automatically by the
+watchdog, so `japi_set_cpu_clock` is always safe to call — the worst case is a
+brief reboot that lands one tier lower.
+
 ## Repository layout
 
 | Path | Contents |
@@ -250,7 +278,7 @@ write freely, then present once per frame.
 | File | Purpose |
 |---|---|
 | `japi_base.c` / `.h` / `.pio` | The core engine: VGA output, keyboard input, audio output and file I/O |
-| `demo.c` / `demo.h` | Demo application (showcase, bouncing balls, Starry Night, API reference) and its dithered demo image |
+| `demo.c` / `demo.h` | Demo application (showcase, bouncing balls, Starry Night, API reference, CPU benchmark) and its dithered demo image |
 | `third_party_libs.c` / `.h` | Third-party libraries needed by the core engine — FatFs (ChaN), SD-over-SPI driver (carlk3), littlefs, pico-lfs — all consolidated, with per-component licence headers and the SD/SPI pin glue at the bottom |
 | `font_8x12.h` | 8×12 bitmap font, CP437 + box-drawing glyphs |
 | `japi_kbd_defaults.h` | Built-in PS/2 keyboard layouts (AZERTY/QWERTY/QWERTZ) |
