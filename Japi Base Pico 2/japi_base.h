@@ -202,17 +202,22 @@ extern vga_char_t vga_text_buffer[VGA_ROWS][VGA_COLS];
 void japi_init(void);
 
 // --- CPU clock ---
-// The CPU runs at 260 MHz by default. It can be switched to an opt-in 324 MHz
-// "high gear" at runtime: the choice is stored in flash and applied on the next
-// boot (a clean reboot, ~1 s), where the VGA program is swapped (5 cycles/pixel)
-// so the picture is unchanged. A board that cannot hold 324 MHz is caught by a
-// watchdog and automatically reverts to 260 -- no re-flash is ever needed.
-//   japi_set_cpu_clock(260 | 324): persist the choice and reboot to apply.
-//   japi_get_cpu_clock_mhz():      the clock the board is actually running at.
-//   japi_clock_was_reverted():     true if a 324 attempt failed and fell back.
+// Three tiers, each with its own core voltage and VGA program; the dot clock
+// stays ~65 MHz (1024x768@60) on all of them, so the picture is unchanged:
+//   260 MHz @ 1.15 V  (the safe floor / fallback)
+//   324 MHz @ 1.20 V  (the default high gear)
+//   390 MHz @ 1.30 V  (opt-in up-size)
+// The choice is stored in flash and applied on the next boot (a clean reboot,
+// ~1 s). A tier the board cannot hold is caught by a watchdog and automatically
+// stepped down one tier (390->324, 324->260) -- no re-flash is ever needed.
+//   japi_set_cpu_clock(260 | 324 | 390): persist the choice and reboot to apply.
+//   japi_get_cpu_clock_mhz():  the clock the board is actually running at.
+//   japi_clock_was_reverted(): true if the last attempt failed and stepped down.
+//   japi_clock_reverted_from(): the tier that failed (MHz), or 0 if none.
 bool japi_set_cpu_clock(int mhz);
 int  japi_get_cpu_clock_mhz(void);
 bool japi_clock_was_reverted(void);
+int  japi_clock_reverted_from(void);
 
 // --- VGA ---
 void vga_clear(uint8_t fg, uint8_t bg);

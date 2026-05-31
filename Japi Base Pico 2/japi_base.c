@@ -57,18 +57,35 @@ static volatile int scanline_counter = 0;
 // =========================================================================
 // CPU CLOCK STATE (runtime 260 <-> 324 MHz switch with watchdog safety net)
 // =========================================================================
-// The desired clock is persisted in flash ("cpuclock.cfg") and applied on the
-// next boot. A 324 MHz attempt is guarded by the hardware watchdog: scratch[0]
-// holds a marker that survives a watchdog reset (but not a power cycle), which
-// lets the boot code tell an intentional reboot (API) apart from a hang.
-#define JAPI_WD_TRYING_324  0x4A324254u  // "J2BT": a 324 attempt is in progress
+// Three tiers, each with its own core voltage and VGA program (cycles/pixel):
+//   260 MHz @ 1.15 V  (k=4, the safe floor)  <- default / fallback landing
+//   324 MHz @ 1.20 V  (k=5, the default high gear)
+//   390 MHz @ 1.30 V  (k=6, opt-in up-size; 65x6 -> exact 65 MHz dot clock)
+// The desired tier is persisted in flash ("cpuclock.cfg") and applied on the
+// next boot. Any tier above the floor is guarded by the hardware watchdog:
+// scratch[0] holds a marker that survives a watchdog reset (but not a power
+// cycle), so the boot code can tell an intentional reboot (API) from a hang and
+// step the failing board down one tier (390->324, 324->260).
+#define JAPI_WD_TRYING_324  0x4A325452u  // "J2TR": a 324 attempt is in progress
+#define JAPI_WD_TRYING_390  0x4A395452u  // "J9TR": a 390 attempt is in progress
 #define JAPI_WD_CLEAN       0x4A434C4Eu  // "JCLN": API rebooted us on purpose
-#define JAPI_WD_REVERTED    0x4A525456u  // "JRTV": last 324 attempt was reverted
+#define JAPI_WD_REVERTED    0x4A525456u  // "JRTV": last attempt was reverted
 #define JAPI_WD_TIMEOUT_MS  1000         // ample vs the 60 Hz heartbeat
 
-static int  japi_active_clock_mhz = 260;
-static bool japi_wd_armed         = false;
-static bool japi_clock_reverted   = false;
+static int  japi_active_clock_mhz       = 260;
+static bool japi_wd_armed               = false;
+static bool japi_clock_reverted         = false;
+static int  japi_clock_reverted_from_mhz = 0;   // tier that failed (0 = none)
+
+static uint32_t japi_trying_marker(int mhz) {
+    return (mhz == 390) ? JAPI_WD_TRYING_390 : JAPI_WD_TRYING_324;
+}
+
+static enum vreg_voltage japi_voltage_for(int mhz) {
+    if (mhz >= 390) return VREG_VOLTAGE_1_30;
+    if (mhz >= 324) return VREG_VOLTAGE_1_20;
+    return VREG_VOLTAGE_1_15;   // 260 MHz floor
+}
 
 // =========================================================================
 // KEYBOARD ENGINE
@@ -945,25 +962,29 @@ static void lfs_load_keyboard(void) {
 
 static int japi_read_clock_target(void) {
     char buf[8] = {0};
-    if (lfs_mounted && lfs_read_file("cpuclock.cfg", buf, 3) &&
-        buf[0] == '3' && buf[1] == '2' && buf[2] == '4')
-        return 324;
-    return 260;
+    if (lfs_mounted && lfs_read_file("cpuclock.cfg", buf, 3)) {
+        if (buf[0] == '3' && buf[1] == '9' && buf[2] == '0') return 390;
+        if (buf[0] == '3' && buf[1] == '2' && buf[2] == '4') return 324;
+        if (buf[0] == '2' && buf[1] == '6' && buf[2] == '0') return 260;
+    }
+    return 324;   // factory default: the 324 MHz high gear
 }
 
 static void japi_write_clock_target(int mhz) {
     if (!lfs_mounted) return;
-    lfs_write_file("cpuclock.cfg", (mhz == 324) ? "324" : "260", 3);
+    const char *s = (mhz == 390) ? "390" : (mhz == 324) ? "324" : "260";
+    lfs_write_file("cpuclock.cfg", s, 3);
 }
 
-int  japi_get_cpu_clock_mhz(void)  { return japi_active_clock_mhz; }
-bool japi_clock_was_reverted(void) { return japi_clock_reverted; }
+int  japi_get_cpu_clock_mhz(void)   { return japi_active_clock_mhz; }
+bool japi_clock_was_reverted(void)  { return japi_clock_reverted; }
+int  japi_clock_reverted_from(void) { return japi_clock_reverted_from_mhz; }
 
 bool japi_set_cpu_clock(int mhz) {
-    if (mhz != 260 && mhz != 324) return false;
+    if (mhz != 260 && mhz != 324 && mhz != 390) return false;
     japi_write_clock_target(mhz);
     // Mark this reset as intentional so the next boot does not mistake it for a
-    // 324 MHz hang, then reboot cleanly to apply the new clock + VGA program.
+    // hang, then reboot cleanly to apply the new clock + voltage + VGA program.
     watchdog_hw->scratch[0] = JAPI_WD_CLEAN;
     watchdog_reboot(0, 0, 0);
     while (true) tight_loop_contents();   // never reached
@@ -974,32 +995,40 @@ void japi_init(void) {
     //     read before we set the clock and pick the matching VGA program. ---
     lfs_init_filesystem();
 
-    // --- CPU clock selection (watchdog safety net for the 324 MHz "high gear")
+    // --- CPU clock selection (watchdog safety net for the 324/390 tiers) ---
     int target = japi_read_clock_target();
-    japi_active_clock_mhz = 260;
     japi_clock_reverted = false;
-    if (target == 324) {
-        if (watchdog_hw->scratch[0] == JAPI_WD_TRYING_324) {
-            // An unplanned reset interrupted a 324 MHz attempt: this board
-            // cannot hold 324, so revert to 260 and always come back up.
-            japi_write_clock_target(260);
-            watchdog_hw->scratch[0] = JAPI_WD_REVERTED;
-            japi_clock_reverted = true;
-        } else {
-            // Fresh attempt (intentional API reboot, power-up or first run):
-            // arm the watchdog, then commit to 324. A hang anywhere from here
-            // resets within JAPI_WD_TIMEOUT_MS and reverts on the next boot.
-            watchdog_hw->scratch[0] = JAPI_WD_TRYING_324;
-            watchdog_enable(JAPI_WD_TIMEOUT_MS, true);
-            japi_wd_armed = true;
-            japi_active_clock_mhz = 324;
-        }
+    japi_clock_reverted_from_mhz = 0;
+
+    // Recovery: an unplanned reset during an attempt at 'target' means this
+    // board could not hold it -> step down one tier (390->324, 324->260).
+    if (target > 260 && watchdog_hw->scratch[0] == japi_trying_marker(target)) {
+        japi_clock_reverted_from_mhz = target;
+        target = (target == 390) ? 324 : 260;
+        japi_write_clock_target(target);
+        japi_clock_reverted = true;
     }
 
-    // --- Clock setup ---
-    vreg_set_voltage(VREG_VOLTAGE_1_30);
+    japi_active_clock_mhz = target;
+
+    // Tiers above the 260 floor are watchdog-guarded attempts. A hang anywhere
+    // from here resets within JAPI_WD_TIMEOUT_MS and steps down on the next boot
+    // (a 390->324 fallback is itself a fresh 324 attempt, so it can cascade to
+    // 260 if needed). The fed heartbeat lives in vga_dma_handler on Core 1.
+    if (target > 260) {
+        watchdog_hw->scratch[0] = japi_trying_marker(target);
+        watchdog_enable(JAPI_WD_TIMEOUT_MS, true);
+        japi_wd_armed = true;
+    } else {
+        watchdog_hw->scratch[0] = japi_clock_reverted ? JAPI_WD_REVERTED
+                                                      : JAPI_WD_CLEAN;
+    }
+
+    // --- Clock setup --- (raise voltage first, then clock; safe since the SDK
+    // boots at ~150 MHz where any tier voltage is more than sufficient)
+    vreg_set_voltage(japi_voltage_for(target));
     sleep_ms(10);
-    set_sys_clock_khz(japi_active_clock_mhz * 1000, true);
+    set_sys_clock_khz(target * 1000, true);
 
     // --- Audio PWM ---
     audio_init();
@@ -1021,11 +1050,14 @@ void japi_init(void) {
     PIO pio = pio0;
 
     // --- HSync & Pixel SM (SM0) ---
-    // At 324 MHz the 5-cycles/pixel program keeps the dot clock at 65 MHz; at
-    // 260 MHz the 4-cycles/pixel program does. Chosen at runtime from the clock.
+    // The cycles/pixel matches the clock so the dot clock stays ~65 MHz: 4 at
+    // 260, 5 at 324, 6 at 390. Only one program is loaded, chosen at runtime.
     uint offset_h;
     pio_sm_config c_h;
-    if (japi_active_clock_mhz >= 324) {
+    if (japi_active_clock_mhz >= 390) {
+        offset_h = pio_add_program(pio, &vga_hsync_pixels_oc390_program);
+        c_h = vga_hsync_pixels_oc390_program_get_default_config(offset_h);
+    } else if (japi_active_clock_mhz >= 324) {
         offset_h = pio_add_program(pio, &vga_hsync_pixels_oc325_program);
         c_h = vga_hsync_pixels_oc325_program_get_default_config(offset_h);
     } else {

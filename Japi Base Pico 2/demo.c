@@ -943,7 +943,7 @@ static void page_benchmark(void) {
     vga_print(0, 2, "JAPI BASE  -  CPU Benchmark", VGA_BLACK, VGA_CYAN);
 
     char line[80];
-    snprintf(line, sizeof(line), "System clock: %d MHz   (dot clock unchanged: 1024x768@60)",
+    snprintf(line, sizeof(line), "System clock: %d MHz   (dot clock ~65 MHz: 1024x768@60)",
              japi_get_cpu_clock_mhz());
     vga_print(2, 2, line, VGA_YELLOW, BG);
     vga_print(3, 2, "Fixed 20,000,000-iteration integer workload, timed each pass.",
@@ -951,14 +951,17 @@ static void page_benchmark(void) {
     vga_print(4, 2, "Timer is independent of the CPU clock, so lower time = faster.",
               VGA_GREEN, BG);
 
-    if (japi_clock_was_reverted())
-        vga_print(5, 2, "324 MHz was unstable on this board -- reverted to 260 MHz.",
-                  VGA_RED, BG);
+    if (japi_clock_was_reverted()) {
+        snprintf(line, sizeof(line),
+                 "%d MHz was unstable on this board -- now running %d MHz.",
+                 japi_clock_reverted_from(), japi_get_cpu_clock_mhz());
+        vga_print(5, 2, line, VGA_RED, BG);
+    }
 
     draw_titled_box(6, 2, 14, 60, " Results ", VGA_CYAN, BG);
 
     for (int c = 0; c < VGA_COLS; c++) vga_set_char(63, c, ' ', VGA_BLACK, VGA_WHITE);
-    vga_print(63, 2, "Shift+T = try 324 MHz   t = back to 260 MHz   ESC = showcase",
+    vga_print(63, 2, "Shift+T = up-size   t = down-size   (260 / 324 / 390 MHz)   ESC = showcase",
               VGA_BLACK, VGA_WHITE);
 
     uint64_t best = (uint64_t)-1;
@@ -1000,10 +1003,11 @@ static void page_benchmark(void) {
         if (japi_has_char()) {
             uint16_t k = japi_get_char();
             if (k == JAPI_KEY_ESCAPE) break;
-            // 'T' (Shift+T) switches to the 324 MHz high gear, 't' back to 260.
+            // 'T' (Shift+T) steps up a tier, 't' steps down (260 / 324 / 390).
             // Both persist the choice and reboot, so neither returns here.
-            if (k == 'T') japi_set_cpu_clock(324);
-            if (k == 't') japi_set_cpu_clock(260);
+            int cur = japi_get_cpu_clock_mhz();
+            if (k == 'T') japi_set_cpu_clock((cur < 324) ? 324 : 390);
+            if (k == 't') japi_set_cpu_clock((cur > 324) ? 324 : 260);
         }
     }
 }

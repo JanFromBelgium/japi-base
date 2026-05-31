@@ -146,6 +146,56 @@ pixel_loop325:
 .wrap
     ; Line total: 120 + 680 + 800 + 5120 = 6720 cycles = 1344 pixels ✓
 
+; --- PROGRAM 1c: HSYNC & PIXEL OUTPUT @ 390 MHz (6 cycles/pixel) ---
+;
+; Same VESA 1024x768@60 structure, 6 PIO cycles per pixel. 390 = 65 x 6 is
+; exactly PLL-attainable, so the dot clock is an exact 65.000 MHz with an
+; integer divider (cleaner than the 324 MHz tier). Every pixel/porch count is
+; the PROGRAM 1 value x 6/4. Chosen at runtime by japi_init() when the CPU clock
+; is 390 MHz. The CPU gets 8064 cycles/scanline for rendering + keyboard + sound.
+;
+;   Visible:      1024 px / 6144 cyc
+;   Front Porch:    24 px /  144 cyc
+;   Sync Pulse:    136 px /  816 cyc
+;   Back Porch:    160 px /  960 cyc
+;   Total:        1344 px / 8064 cyc  (20.677 us per line, 60.00 Hz exact)
+;
+.program vga_hsync_pixels_oc390
+.side_set 1
+
+.wrap_target
+    ; --- FRONT PORCH: 24 pixels = 144 PIO cycles ---
+    mov pins, null      side 1          ; 1 cycle  (RGB = 000000, HSYNC HIGH)
+    set x, 22           side 1 [4]      ; 5 cycles
+fp_loop390:
+    jmp x-- fp_loop390  side 1 [5]      ; 23 × 6 = 138 cycles
+    ; Total: 1 + 5 + 138 = 144 ✓
+
+    ; --- SYNC PULSE: 136 pixels = 816 PIO cycles ---
+    set x, 31           side 0 [7]      ; 8 cycles  (HSYNC LOW, active)
+    nop                 side 0 [7]      ; 8 cycles
+sync_loop390:
+    nop                 side 0 [15]     ; 16 cycles
+    jmp x-- sync_loop390 side 0 [8]     ; 9 cycles → loop body 25 × 32 = 800
+    ; Total: 8 + 8 + 800 = 816 ✓
+
+    ; --- BACK PORCH: 160 pixels = 960 PIO cycles ---
+    set x, 31           side 1 [15]     ; 16 cycles  (HSYNC HIGH, inactive)
+    nop                 side 1 [15]     ; 16 cycles
+bp_loop390:
+    nop                 side 1 [15]     ; 16 cycles
+    jmp x-- bp_loop390  side 1 [11]     ; 12 cycles → loop body 28 × 32 = 896
+    irq 4               side 1 [15]     ; 16 cycles  (signal SM1 / VSync)
+    mov x, y            side 1 [15]     ; 16 cycles  (load pixel count 1023 from Y)
+    ; Total: 16 + 16 + 896 + 16 + 16 = 960 ✓
+
+    ; --- VISIBLE PIXELS: 1024 pixels = 6144 PIO cycles ---
+pixel_loop390:
+    out pins, 8         side 1 [4]      ; 5 cyc + jmp 1 cyc = 6/pixel
+    jmp x-- pixel_loop390 side 1
+.wrap
+    ; Line total: 144 + 816 + 960 + 6144 = 8064 cycles = 1344 pixels ✓
+
 ; --- PROGRAM 2: VSYNC TIMING (State Machine 1) ---
 ;
 ; Side-set pin = VSYNC (GP0), optional
