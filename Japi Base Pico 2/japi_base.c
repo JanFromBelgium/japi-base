@@ -19,15 +19,6 @@
 #include "japi_kbd_defaults.h"
 
 // =========================================================================
-// HARDWARE PIN CONFIGURATION
-// =========================================================================
-#define PIN_VSYNC    0
-#define PIN_HSYNC    1
-#define PIN_RGB_BASE 2
-#define PIN_AUDIO_L  8
-#define PIN_AUDIO_R  9
-
-// =========================================================================
 // INTERNAL STATE
 // =========================================================================
 
@@ -152,7 +143,6 @@ static inline void __not_in_flash_func(kbd_push)(uint16_t c) {
 // AUDIO ENGINE
 // =========================================================================
 
-#define AUDIO_PWM_SLICE   4
 #define AUDIO_PWM_WRAP    6500
 #define AUDIO_SAMPLES     806
 #define AUDIO_SAMPLE_RATE 48360
@@ -1097,11 +1087,17 @@ void japi_init(void) {
     // --- PS/2 Keyboard SM (SM2) ---
     uint offset_ps2 = pio_add_program(pio, &ps2_keyboard_program);
     pio_sm_config c_ps2 = ps2_keyboard_program_get_default_config(offset_ps2);
-    pio_gpio_init(pio, 15);
-    gpio_pull_up(15);
-    sm_config_set_in_pins(&c_ps2, 15);
-    pio_gpio_init(pio, 14);
-    gpio_pull_up(14);
+    pio_gpio_init(pio, PIN_KEYB_DATA);
+    gpio_pull_up(PIN_KEYB_DATA);
+    sm_config_set_in_pins(&c_ps2, PIN_KEYB_DATA);
+    pio_gpio_init(pio, PIN_KEYB_CLK);
+    gpio_pull_up(PIN_KEYB_CLK);
+
+    // Configure a JMPPIN, so we can use the `wait jmppin` PIO instruction
+    // instead of `wait gpio`, which means we don't need to alter the PIO
+    // code if we redefine PIN_KEYB_CLK
+    sm_config_set_jmp_pin(&c_ps2, PIN_KEYB_CLK);
+
     // The SM samples the data line on the PS/2 clock's falling edge (wait
     // instructions on GP14), so the clock rate is set by the PS/2 device, not
     // by this divider. Running the SM at full clk_sys (260 MHz) makes it so

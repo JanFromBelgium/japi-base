@@ -19,6 +19,60 @@
 #define SD_SPI_BAUD     1000000  // 1 MHz: plenty for config-time SD access, very stable
 
 // =========================================================================
+// VGA PIN CONFIGURATION
+// =========================================================================
+#define PIN_VSYNC       0
+#define PIN_HSYNC       1
+#define PIN_RGB_BASE    2
+
+// =========================================================================
+// AUDIO CONFIGURATION
+// =========================================================================
+#define PIN_AUDIO_L     8
+#define PIN_AUDIO_R     9
+#define AUDIO_PWM_SLICE 4   // Depends on assigned PIN_AUDIO_L / PIN_AUDIO_R
+                            // See Table 1130 in RP2350 datasheet.
+
+// =========================================================================
+// KEYBOARD PIN CONFIGURATION
+// =========================================================================
+#define PIN_KEYB_CLK    14
+#define PIN_KEYB_DATA   15
+
+// =========================================================================
+// REDEFINE PIN CONFIGURATION (if USER_HARDWARE is defined and not 0)
+// =========================================================================
+#define USER_HARDWARE   0
+
+// Possible user hardware definitions
+#define UH_DEFAULT          0 // Default, as per README.md
+#define UH_MAKER_PI_PICO    1 // Cytron Maker Pi Pico (with a Pico 2)
+
+#ifdef USER_HARDWARE
+#if USER_HARDWARE == UH_MAKER_PI_PICO
+
+#undef PIN_KEYB_CLK
+#define PIN_KEYB_CLK    8
+
+#undef PIN_KEYB_DATA
+#define PIN_KEYB_DATA   9
+
+#undef PIN_SD_SS
+#define PIN_SD_SS       15
+
+#undef PIN_AUDIO_L
+#define PIN_AUDIO_L     18
+
+#undef PIN_AUDIO_R
+#define PIN_AUDIO_R     19
+
+#undef AUDIO_PWM_SLICE
+#define AUDIO_PWM_SLICE 1
+
+#endif
+#endif
+
+// =========================================================================
 // SCREEN DIMENSIONS
 // =========================================================================
 #define VGA_COLS        127

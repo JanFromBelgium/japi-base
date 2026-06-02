@@ -233,12 +233,12 @@ bp_v_loop:
 .wrap
 
 ; --- PROGRAM 3: PS/2 KEYBOARD DECODER (State Machine 2) ---
-; Unchanged from Pico 1. Samples data on falling clock edge.
-; Clock = GP14 (hardcoded), Data = GP15.
+; Changed slightly from Pico 1 - uses `wait jmppin` instead of `wait gpio`.
+; PIN_KEYB_CLK (jmppin) & PIN_KEYB_DATA (in_pin) are defined in `japi_base.h`.
 .program ps2_keyboard
 
 .wrap_target
-    wait 1 gpio 14      ; Wait for PS/2 Clock HIGH
-    wait 0 gpio 14      ; Wait for falling edge (sampling point)
-    in pins, 1          ; Sample 1 bit from GP15 into ISR
+    wait 1 jmppin       ; Wait for PS/2 PIN_KEYB_CLK HIGH
+    wait 0 jmppin       ; Wait for falling edge (sampling point)
+    in pins, 1          ; Sample 1 bit from PIN_KEYB_DATA into ISR
 .wrap
