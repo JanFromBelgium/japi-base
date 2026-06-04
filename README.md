@@ -190,10 +190,14 @@ RUN ──┬── [button] ── GND
 
 ## Timing & memory budget
 
-- CPU at **260 MHz**, PIO divider 1:1, 4 ticks/pixel → exact **65 MHz** pixel
-  clock for 1024×768@60 Hz.
+- The figures below are for the **260 MHz baseline tier**; the higher tiers
+  keep the same 65 MHz dot clock but give your code proportionally more
+  cycles per scanline.
+- At 260 MHz the PIO runs 4 ticks/pixel (divider 1:1) → exact **65 MHz**
+  pixel clock for 1024×768@60 Hz. At 324 / 390 MHz the PIO divider is
+  retuned so the dot clock stays 65 MHz and the picture is unchanged.
 - 806 scanlines × 60 Hz ≈ **5374 CPU cycles per scanline** for the base
-  engine (rendering + keyboard + audio).
+  engine (rendering + keyboard + audio) at the 260 MHz baseline.
 - Audio: PWM at 40 kHz, sample rate **24 180 Hz** (one sample every two
   scanlines) to keep per-scanline IRQ work bounded.
 - Bitmap buffer cap: **128 KB** (`JAPI_BITMAP_MAX_RAM`). The demo's full-screen
