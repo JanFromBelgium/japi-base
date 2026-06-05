@@ -42,7 +42,7 @@ static uint8_t vga_line_buf_1[VGA_WIDTH] __attribute__((section(".scratch_y")))
 static uint32_t nibble_expand[16] __attribute__((section(".data")));
 
 /* Double-buffered text buffer. Apps write to vga_text_buffer; the scanline
-   render reads from vga_text_active. vga_wait_vblank() copies one into the
+   render reads from vga_text_active. vga_update() copies one into the
    other during the vertical blank, so each frame is shown atomically and
    render time can exceed one frame without tearing. */
 vga_char_t vga_text_buffer[VGA_ROWS][VGA_COLS];
@@ -688,7 +688,7 @@ void vga_print(int row, int col, const char *str, uint8_t fg, uint8_t bg) {
     }
 }
 
-void vga_wait_vblank(void) {
+void vga_update(void) {
     while (scanline_counter < VGA_HEIGHT) tight_loop_contents();
     /* Vblank started — scan is past the visible region. Promote the app's
        write buffer to the active (read-by-scanline) buffer. ~32 KB, well

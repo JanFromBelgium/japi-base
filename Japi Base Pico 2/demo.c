@@ -60,9 +60,9 @@ static void draw_shadow(int r1, int c1, int r2, int c2) {
 static uint16_t wait_key(void) {
     /* Idle on vblank so any text the page wrote before calling us
        reaches the active (read-by-scanline) buffer; otherwise the
-       page would only become visible after the next vga_wait_vblank
+       page would only become visible after the next vga_update
        elsewhere, which may never come on a static screen. */
-    while (!japi_has_char()) vga_wait_vblank();
+    while (!japi_has_char()) vga_update();
     return japi_get_char();
 }
 
@@ -443,7 +443,7 @@ static void page_showcase(void) {
 
         int pos = 1;
         while (!japi_has_char()) {
-            vga_wait_vblank();   /* Publish previous iteration's writes
+            vga_update();   /* Publish previous iteration's writes
                                     (and on the first pass, the whole
                                     page_showcase initial draw). */
 
@@ -490,7 +490,7 @@ static void clear_caption_panel(void) {
 
 // PHASE 1: bouncing balls on a solid billiard-felt background.
 // Flicker-free: the whole erase+move+draw mutation runs during the vertical
-// blanking interval (after vga_wait_vblank), so the VGA engine never scans a
+// blanking interval (after vga_update), so the VGA engine never scans a
 // half-updated buffer. A solid background makes the erase a per-row memset,
 // fast enough to finish well within the ~0.8 ms blank.
 #define FELT 0x04   /* dark billiard green (RRGGBB: R=0 G=1 B=0) */
@@ -524,7 +524,7 @@ static void bitmap_phase_balls(uint8_t *buf, int W, int H, int duration_ms) {
     while (frames-- > 0 && !japi_has_char()) {
         // Pace ~60fps, then align the mutation to the start of vblank.
         sleep_ms(15);
-        vga_wait_vblank();
+        vga_update();
 
         // Erase: fill each ball's bbox with felt (square erase is invisible
         // on a solid background). Clipped to interior to keep the border.
@@ -691,7 +691,7 @@ static void page_api(void) {
     vga_print(15, L1 + 2, "    vga_set_char(1,0,'A',VGA_CYAN,VGA_BLUE);", VGA_YELLOW, BG);
     vga_print(16, L1 + 2, "    // Direct buffer: .code .fg .bg",      VGA_GREEN, BG);
     vga_print(17, L1 + 2, "    vga_text_buffer[2][0].code = 'B';",    VGA_YELLOW, BG);
-    vga_print(18, L1 + 2, "    vga_wait_vblank();",                   VGA_YELLOW, BG);
+    vga_print(18, L1 + 2, "    vga_update();",                   VGA_YELLOW, BG);
     vga_print(18, L1 + 28, "// sync with refresh",                    VGA_GREEN, BG);
 
     vga_print(20, L1 + 2, "    // === Redefine Font Glyph ===",       VGA_GREEN, BG);
@@ -998,7 +998,7 @@ static void page_benchmark(void) {
                  (unsigned long)chk);
         vga_print(12, 4, line, VGA_YELLOW, BG);
 
-        vga_wait_vblank();   // push the stats to the active (scanned) buffer
+        vga_update();   // push the stats to the active (scanned) buffer
 
         if (japi_has_char()) {
             uint16_t k = japi_get_char();

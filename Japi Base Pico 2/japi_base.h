@@ -223,7 +223,7 @@ int  japi_clock_reverted_from(void);
 void vga_clear(uint8_t fg, uint8_t bg);
 void vga_set_char(int row, int col, uint8_t code, uint8_t fg, uint8_t bg);
 void vga_print(int row, int col, const char *str, uint8_t fg, uint8_t bg);
-void vga_wait_vblank(void);
+void vga_update(void);
 void vga_redefine_char(uint8_t code, const uint8_t new_bitmap[FONT_H]);
 
 // --- BITMAP GRAPHICS ---

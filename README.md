@@ -238,7 +238,7 @@ int main(void) {
     japi_play(NOTE_C5, 200);                      // a short beep
 
     for (;;) {
-        vga_wait_vblank();                        // publish writes to the screen
+        vga_update();                        // publish writes to the screen
         if (japi_has_char()) {
             uint16_t k = japi_get_char();
             if (k == JAPI_KEY_ESCAPE) break;
@@ -249,7 +249,7 @@ int main(void) {
 ```
 
 `vga_set_char` / `vga_print` / `vga_clear` write into a back buffer; the
-scanline reads from a separate front buffer. `vga_wait_vblank()` swaps
+scanline reads from a separate front buffer. `vga_update()` swaps
 them during the vertical blanking interval, so each frame is shown
 atomically (no tearing, no half-finished updates), and your render can
 take longer than a single frame without consequence. The convention is
