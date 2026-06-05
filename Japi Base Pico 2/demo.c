@@ -724,7 +724,7 @@ static void page_api(void) {
     vga_print(44, L1 + 2, "        japi_fclose(&f);",                 VGA_YELLOW, BG);
     vga_print(45, L1 + 2, "    }",                                    VGA_YELLOW, BG);
 
-    vga_print(47, L1 + 2, "    // Copy from SD to flash floppy",      VGA_GREEN, BG);
+    vga_print(47, L1 + 2, "    // Copy from SD to built-in media",    VGA_GREEN, BG);
     vga_print(48, L1 + 2, "    if (japi_fopen(&f,\"A:hello.txt\",",   VGA_YELLOW, BG);
     vga_print(49, L1 + 2, "                   JAPI_READ)) {",         VGA_YELLOW, BG);
     vga_print(50, L1 + 2, "        int n=japi_fread(&f,buf,128);",    VGA_YELLOW, BG);
@@ -746,7 +746,7 @@ static void page_api(void) {
     vga_print(4,  R1 + 2, "    if (japi_exists(\"C:hello.txt\"))",    VGA_YELLOW, BG);
     vga_print(5,  R1 + 2, "        vga_print(4,0,\"OK!\",0x3F,1);",  VGA_YELLOW, BG);
 
-    vga_print(7,  R1 + 2, "    // Read back from flash floppy",       VGA_GREEN, BG);
+    vga_print(7,  R1 + 2, "    // Read back from built-in media",     VGA_GREEN, BG);
     vga_print(8,  R1 + 2, "    if (japi_fopen(&f,\"C:hello.txt\",",   VGA_YELLOW, BG);
     vga_print(9,  R1 + 2, "                   JAPI_READ)) {",         VGA_YELLOW, BG);
     vga_print(10, R1 + 2, "        int n=japi_fread(&f,buf,127);",    VGA_YELLOW, BG);

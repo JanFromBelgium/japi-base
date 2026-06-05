@@ -22,10 +22,12 @@ code, honest documentation, and no hidden defects.
   screen. The buffer is capped at ~128 KB: up to 416×312 logical pixels at
   scale 1, or an almost full-screen 832×624 via 2×2 pixels at scale 2.
 - **PS/2 keyboard** — QWERTY_US built in; any other layout (AZERTY, QWERTZ, …)
-  loads from a `<name>.kbd` file named in `config.sys` on the SD card or floppy.
-- **Storage** — a 360 KB LittleFS "flash floppy" (always available) plus an
-  optional micro-SD card when inserted, behind one unified DOS-style file API
-  (`A:` = SD card, `C:` = flash floppy). Both file I/O (`japi_fopen` /
+  loads from a `<name>.kbd` file named in `config.sys` on the SD card or the
+  built-in media.
+- **Storage** — a 360 KB LittleFS area on the Pico's flash (always available)
+  plus an optional micro-SD card when inserted, behind one unified DOS-style
+  file API (`A:` = removable SD card, `C:` = built-in media). Both file I/O
+  (`japi_fopen` /
   `japi_fread` / …) and directory listing (`japi_opendir` / `japi_readdir`)
   are provided in the same API.
 - **Audio** — PWM stereo output with a built-in 4-channel wavetable synth
@@ -172,8 +174,8 @@ GP13 ── CS       3.3V ──┬── VCC         Pico GND ── GND
 ```
 
 Card-detect is intentionally disabled (a background IRQ would disturb the VGA
-scanline timing). The SD card is optional — the system boots from the LittleFS
-flash floppy without it.
+scanline timing). The SD card is optional — the system boots from the built-in
+media without it.
 
 ### Reset button
 
@@ -277,6 +279,7 @@ brief reboot that lands one tier lower.
 | Path | Contents |
 |---|---|
 | `Japi Base Pico 2/` | The complete Pico 2 firmware (engine + demo) |
+| `keyboard layouts/` | Ready-made `.kbd` files for non-US keyboards, selected via `config.sys` (see the manual) |
 | `images/` | Screenshots and GIFs used in this README |
 | `LICENSE` | GNU GPL v3 |
 | `README.md` | This file |
