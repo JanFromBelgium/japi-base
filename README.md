@@ -328,6 +328,22 @@ example, a fix in the engine that every application benefits from).
 - A Z80 emulator
 - A build/usage manual once the feature set is stable.
 
+## Contributing
+
+Japi Base is meant to be forked and built on. If you make something with it, I'd
+love to hear about it.
+
+- **Found a bug, or have a suggestion?** Open an
+  [issue](https://github.com/JanFromBelgium/japi-base/issues).
+- **Want to improve the platform?** Pull requests are welcome — you don't have to
+  be an expert to send one. Japi Base itself is written in collaboration with an
+  AI assistant, so we're all learning here.
+- **Built a layout, a demo or an app on top of it?** Tell me in an issue; I enjoy
+  seeing where people take it.
+
+For a larger change, opening an issue to discuss it first is usually the
+smoothest path.
+
 ## Credits
 
 - **FatFs_SPI** — SD card over SPI, by carlk3.
