@@ -31620,3 +31620,7 @@ spi_t *spi_get_by_num(size_t num) {
     if (num == 0) return &spi;
     return NULL;
 }
+
+void set_sd_ss_pin(uint32_t sd_ss_pin) {
+    sd_cards[0].ss_gpio = sd_ss_pin;
+}

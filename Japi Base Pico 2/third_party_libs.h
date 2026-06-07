@@ -2109,6 +2109,7 @@ struct lfs_config* pico_lfs_init(size_t offset, size_t size);
 */
 void pico_lfs_destroy(struct lfs_config *cfg);
 
+void set_sd_ss_pin(uint32_t sd_ss_pin);
 
 #ifdef __cplusplus
 } /* extern "C" */
