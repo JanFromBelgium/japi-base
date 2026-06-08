@@ -43,7 +43,6 @@ bi_decl(bi_ptr_int32(0x1111, FG_VGA, pin_vsync, PIN_VSYNC));
 
 bi_decl(bi_ptr_int32(0x1111, FG_AUDIO, pin_audio_l, PIN_AUDIO_L));
 
-bi_decl(bi_ptr_string(0x1111, FG_KEYB, keyb_layout, "use lfs", 32));
 bi_decl(bi_ptr_int32(0x1111, FG_KEYB, pin_keyb_data, PIN_KEYB_DATA));
 bi_decl(bi_ptr_int32(0x1111, FG_KEYB, pin_keyb_clk, PIN_KEYB_CLK));
 
@@ -955,27 +954,21 @@ static void lfs_load_keyboard(void) {
     char config_buf[128] = {0};
     char keyboard_layout[32] = "QWERTY_US";
 
-    if (strcmp(keyb_layout, "use lfs")) {
-        // keyb_layout != "use lfs", so use it instead of any layout defined
-        // defined in the lfs.
-        strcpy(keyboard_layout, keyb_layout);
-    } else {
-        lfs_file_t f;
-        if (lfs_file_open(&lfs, &f, "config.sys", LFS_O_RDONLY) == LFS_ERR_OK) {
-            lfs_ssize_t br = lfs_file_read(&lfs, &f, config_buf, sizeof(config_buf) - 1);
-            lfs_file_close(&lfs, &f);
-            if (br > 0) {
-                config_buf[br] = '\0';
-                char *match = strstr(config_buf, "KEYBOARD MAPPING = ");
-                if (match) {
-                    char *value = match + 19;
-                    int i = 0;
-                    while (value[i] && value[i] != '\r' && value[i] != '\n' && i < 31) {
-                        keyboard_layout[i] = value[i];
-                        i++;
-                    }
-                    keyboard_layout[i] = '\0';
+    lfs_file_t f;
+    if (lfs_file_open(&lfs, &f, "config.sys", LFS_O_RDONLY) == LFS_ERR_OK) {
+        lfs_ssize_t br = lfs_file_read(&lfs, &f, config_buf, sizeof(config_buf) - 1);
+        lfs_file_close(&lfs, &f);
+        if (br > 0) {
+            config_buf[br] = '\0';
+            char *match = strstr(config_buf, "KEYBOARD MAPPING = ");
+            if (match) {
+                char *value = match + 19;
+                int i = 0;
+                while (value[i] && value[i] != '\r' && value[i] != '\n' && i < 31) {
+                    keyboard_layout[i] = value[i];
+                    i++;
                 }
+                keyboard_layout[i] = '\0';
             }
         }
     }
