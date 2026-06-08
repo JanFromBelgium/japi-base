@@ -60,9 +60,9 @@ static void draw_shadow(int r1, int c1, int r2, int c2) {
 static uint16_t wait_key(void) {
     /* Idle on vblank so any text the page wrote before calling us
        reaches the active (read-by-scanline) buffer; otherwise the
-       page would only become visible after the next vga_wait_vblank
+       page would only become visible after the next vga_update
        elsewhere, which may never come on a static screen. */
-    while (!japi_has_char()) vga_wait_vblank();
+    while (!japi_has_char()) vga_update();
     return japi_get_char();
 }
 
@@ -130,11 +130,19 @@ static void page_showcase(void) {
     // --- Title ---
     for (int c = 0; c < VGA_COLS; c++) vga_set_char(0, c, ' ', BG, VGA_CYAN);
     vga_print(0, 3, "JAPI BASE PICO 2", VGA_BLACK, VGA_CYAN);
-    vga_print(0, 60, "RP2350 @ 260 MHz  |  Pico SDK 2.2.0", BG, VGA_CYAN);
+    char title[40];
+    snprintf(title, sizeof(title), "RP2350 @ %d MHz  |  Pico SDK 2.2.0",
+             japi_get_cpu_clock_mhz());
+    vga_print(0, 60, title, BG, VGA_CYAN);
 
     vga_print(2, 3, "VGA 1024x768 60Hz  127x64 text  64 foreground and 64 background colours.  PS/2 Keyboard.  SD Card (FatFs).", VGA_YELLOW, BG);
-    vga_print(3, 3, "Uses: PIO0 (3 SMs: HSync+pixels, VSync, PS/2), Core 1, DMA IRQ0 (SD) + IRQ1 (VGA), sys clock 260 MHz.", VGA_YELLOW, BG);
-    vga_print(4, 3, "Free: Core 0, PIO1 (4 SMs), DMA (polling only).", VGA_YELLOW, BG);
+    char uses[120];
+    snprintf(uses, sizeof(uses),
+             "Uses: PIO0 (3 SMs: HSync+pixels, VSync, PS/2), Core 1, "
+             "DMA IRQ0 (SD) + IRQ1 (VGA), sys clock %d MHz.",
+             japi_get_cpu_clock_mhz());
+    vga_print(3, 3, uses, VGA_YELLOW, BG);
+    vga_print(4, 3, "Free: Core 0, PIO1 + PIO2 (8 SMs), DMA (polling only).", VGA_YELLOW, BG);
     vga_print(4, 52, "Do NOT change sys clock or use DMA IRQ0/IRQ1 or PIO0.", VGA_RED, BG);
 
     // --- Colour Palette (compact) ---
@@ -443,7 +451,7 @@ static void page_showcase(void) {
 
         int pos = 1;
         while (!japi_has_char()) {
-            vga_wait_vblank();   /* Publish previous iteration's writes
+            vga_update();   /* Publish previous iteration's writes
                                     (and on the first pass, the whole
                                     page_showcase initial draw). */
 
@@ -490,7 +498,7 @@ static void clear_caption_panel(void) {
 
 // PHASE 1: bouncing balls on a solid billiard-felt background.
 // Flicker-free: the whole erase+move+draw mutation runs during the vertical
-// blanking interval (after vga_wait_vblank), so the VGA engine never scans a
+// blanking interval (after vga_update), so the VGA engine never scans a
 // half-updated buffer. A solid background makes the erase a per-row memset,
 // fast enough to finish well within the ~0.8 ms blank.
 #define FELT 0x04   /* dark billiard green (RRGGBB: R=0 G=1 B=0) */
@@ -524,7 +532,7 @@ static void bitmap_phase_balls(uint8_t *buf, int W, int H, int duration_ms) {
     while (frames-- > 0 && !japi_has_char()) {
         // Pace ~60fps, then align the mutation to the start of vblank.
         sleep_ms(15);
-        vga_wait_vblank();
+        vga_update();
 
         // Erase: fill each ball's bbox with felt (square erase is invisible
         // on a solid background). Clipped to interior to keep the border.
@@ -691,7 +699,7 @@ static void page_api(void) {
     vga_print(15, L1 + 2, "    vga_set_char(1,0,'A',VGA_CYAN,VGA_BLUE);", VGA_YELLOW, BG);
     vga_print(16, L1 + 2, "    // Direct buffer: .code .fg .bg",      VGA_GREEN, BG);
     vga_print(17, L1 + 2, "    vga_text_buffer[2][0].code = 'B';",    VGA_YELLOW, BG);
-    vga_print(18, L1 + 2, "    vga_wait_vblank();",                   VGA_YELLOW, BG);
+    vga_print(18, L1 + 2, "    vga_update();",                   VGA_YELLOW, BG);
     vga_print(18, L1 + 28, "// sync with refresh",                    VGA_GREEN, BG);
 
     vga_print(20, L1 + 2, "    // === Redefine Font Glyph ===",       VGA_GREEN, BG);
@@ -708,8 +716,8 @@ static void page_api(void) {
     vga_print(30, L1 + 2, "    uint8_t orange = (3<<4)|(2<<2)|0;",    VGA_YELLOW, BG);
 
     vga_print(32, L1 + 2, "    // === File I/O ===",                   VGA_GREEN, BG);
-    vga_print(33, L1 + 2, "    // Drive A: = 360K flash (always)",    VGA_GREEN, BG);
-    vga_print(34, L1 + 2, "    // Drive C: = SD card (if inserted)",  VGA_GREEN, BG);
+    vga_print(33, L1 + 2, "    // Drive A: = SD card (if inserted)",  VGA_GREEN, BG);
+    vga_print(34, L1 + 2, "    // Drive C: = 360K flash (always)",    VGA_GREEN, BG);
     vga_print(35, L1 + 2, "    // Modes: JAPI_READ JAPI_WRITE",      VGA_GREEN, BG);
     vga_print(36, L1 + 2, "    //        JAPI_APPEND",                VGA_GREEN, BG);
     vga_print(37, L1 + 2, "    japi_file_t f;",                       VGA_YELLOW, BG);
@@ -718,19 +726,19 @@ static void page_api(void) {
     vga_print(38, L1 + 23, "// read buffer",                          VGA_GREEN, BG);
 
     vga_print(40, L1 + 2, "    // Write to SD card",                  VGA_GREEN, BG);
-    vga_print(41, L1 + 2, "    if (japi_fopen(&f,\"C:hello.txt\",",   VGA_YELLOW, BG);
+    vga_print(41, L1 + 2, "    if (japi_fopen(&f,\"A:hello.txt\",",   VGA_YELLOW, BG);
     vga_print(42, L1 + 2, "                   JAPI_WRITE)) {",        VGA_YELLOW, BG);
     vga_print(43, L1 + 2, "        japi_fwrite(&f,\"Hello!\\n\",7);", VGA_YELLOW, BG);
     vga_print(44, L1 + 2, "        japi_fclose(&f);",                 VGA_YELLOW, BG);
     vga_print(45, L1 + 2, "    }",                                    VGA_YELLOW, BG);
 
-    vga_print(47, L1 + 2, "    // Copy from SD to flash floppy",      VGA_GREEN, BG);
-    vga_print(48, L1 + 2, "    if (japi_fopen(&f,\"C:hello.txt\",",   VGA_YELLOW, BG);
+    vga_print(47, L1 + 2, "    // Copy from SD to built-in media",    VGA_GREEN, BG);
+    vga_print(48, L1 + 2, "    if (japi_fopen(&f,\"A:hello.txt\",",   VGA_YELLOW, BG);
     vga_print(49, L1 + 2, "                   JAPI_READ)) {",         VGA_YELLOW, BG);
     vga_print(50, L1 + 2, "        int n=japi_fread(&f,buf,128);",    VGA_YELLOW, BG);
     vga_print(51, L1 + 2, "        japi_fclose(&f);",                 VGA_YELLOW, BG);
     vga_print(52, L1 + 2, "        japi_file_t f2;",                  VGA_YELLOW, BG);
-    vga_print(53, L1 + 2, "        if (japi_fopen(&f2,\"A:hello.txt\",", VGA_YELLOW, BG);
+    vga_print(53, L1 + 2, "        if (japi_fopen(&f2,\"C:hello.txt\",", VGA_YELLOW, BG);
     vga_print(54, L1 + 2, "                       JAPI_WRITE)) {",    VGA_YELLOW, BG);
     vga_print(55, L1 + 2, "            japi_fwrite(&f2,buf,n);",      VGA_YELLOW, BG);
     vga_print(56, L1 + 2, "            japi_fclose(&f2);",            VGA_YELLOW, BG);
@@ -743,11 +751,11 @@ static void page_api(void) {
     // === CODE: right panel rows 3-60 ===
 
     vga_print(3,  R1 + 2, "    // Check if file exists on flash",     VGA_GREEN, BG);
-    vga_print(4,  R1 + 2, "    if (japi_exists(\"A:hello.txt\"))",    VGA_YELLOW, BG);
+    vga_print(4,  R1 + 2, "    if (japi_exists(\"C:hello.txt\"))",    VGA_YELLOW, BG);
     vga_print(5,  R1 + 2, "        vga_print(4,0,\"OK!\",0x3F,1);",  VGA_YELLOW, BG);
 
-    vga_print(7,  R1 + 2, "    // Read back from flash floppy",       VGA_GREEN, BG);
-    vga_print(8,  R1 + 2, "    if (japi_fopen(&f,\"A:hello.txt\",",   VGA_YELLOW, BG);
+    vga_print(7,  R1 + 2, "    // Read back from built-in media",     VGA_GREEN, BG);
+    vga_print(8,  R1 + 2, "    if (japi_fopen(&f,\"C:hello.txt\",",   VGA_YELLOW, BG);
     vga_print(9,  R1 + 2, "                   JAPI_READ)) {",         VGA_YELLOW, BG);
     vga_print(10, R1 + 2, "        int n=japi_fread(&f,buf,127);",    VGA_YELLOW, BG);
     vga_print(11, R1 + 2, "        buf[n]=0;",                        VGA_YELLOW, BG);
@@ -785,20 +793,20 @@ static void page_api(void) {
     vga_print(42, R1 + 2, "// _NUM_PLUS _MINUS _MUL _NUM_DIV",      VGA_GREEN, BG);
 
     vga_print(44, R1 + 2, "// --- Keyboard Layout ---",              VGA_GREEN, BG);
-    vga_print(45, R1 + 2, "// Edit A:config.sys:",                   VGA_GREEN, BG);
-    vga_print(46, R1 + 2, "// KEYBOARD MAPPING = AZERTY_FR",         VGA_GREEN, BG);
-    vga_print(47, R1 + 2, "// AZERTY_BE  AZERTY_FR  QWERTY_BE",     VGA_GREEN, BG);
-    vga_print(48, R1 + 2, "// QWERTY_UK  QWERTY_US  QWERTZ_DE",     VGA_GREEN, BG);
+    vga_print(45, R1 + 2, "// Built-in layout: QWERTY_US",          VGA_GREEN, BG);
+    vga_print(46, R1 + 2, "// For another, put NAME.kbd and",       VGA_GREEN, BG);
+    vga_print(47, R1 + 2, "// config.sys on the SD (A:):",          VGA_GREEN, BG);
+    vga_print(48, R1 + 2, "// KEYBOARD MAPPING = AZERTY_BE",         VGA_GREEN, BG);
 
-    // === DIRECTORY LISTING ON C: (right panel, rows 50-55) ===
+    // === DIRECTORY LISTING ON A: (right panel, rows 50-55) ===
     // Visible confirmation that Japi Base can read files from the SD
     // card -- the user does not need to write any code to see that the
     // storage works. Up to 4 entries shown; if the card is absent or
     // empty we say so explicitly.
-    draw_titled_box(50, R1, 55, R2, " Files on C:\\ ", VGA_GREEN, BG);
+    draw_titled_box(50, R1, 55, R2, " Files on A:\\ ", VGA_GREEN, BG);
     {
         japi_dir_t d;
-        if (!japi_opendir(&d, "C:")) {
+        if (!japi_opendir(&d, "A:")) {
             vga_print(51, R1 + 2, "(no SD card inserted)", VGA_CYAN, BG);
         } else {
             char name[64];
@@ -998,7 +1006,7 @@ static void page_benchmark(void) {
                  (unsigned long)chk);
         vga_print(12, 4, line, VGA_YELLOW, BG);
 
-        vga_wait_vblank();   // push the stats to the active (scanned) buffer
+        vga_update();   // push the stats to the active (scanned) buffer
 
         if (japi_has_char()) {
             uint16_t k = japi_get_char();

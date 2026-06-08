@@ -242,7 +242,7 @@ int  japi_clock_reverted_from(void);
 void vga_clear(uint8_t fg, uint8_t bg);
 void vga_set_char(int row, int col, uint8_t code, uint8_t fg, uint8_t bg);
 void vga_print(int row, int col, const char *str, uint8_t fg, uint8_t bg);
-void vga_wait_vblank(void);
+void vga_update(void);
 void vga_redefine_char(uint8_t code, const uint8_t new_bitmap[FONT_H]);
 
 // --- BITMAP GRAPHICS ---
@@ -388,8 +388,8 @@ void japi_sound_off(void);
 
 // --- FILE I/O (unified API for SD card and LittleFS flash) ---
 //
-// Drive letters:  A: = LittleFS flash floppy (360K, always available)
-//                 C: = SD card (available if card is inserted)
+// Drive letters:  A: = SD card (removable media, available if inserted)
+//                 C: = LittleFS built-in media (360K flash, always available)
 
 typedef struct {
     uint8_t type;

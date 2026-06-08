@@ -63,7 +63,7 @@ static uint8_t vga_line_buf_1[VGA_WIDTH] __attribute__((section(".scratch_y")))
 static uint32_t nibble_expand[16] __attribute__((section(".data")));
 
 /* Double-buffered text buffer. Apps write to vga_text_buffer; the scanline
-   render reads from vga_text_active. vga_wait_vblank() copies one into the
+   render reads from vga_text_active. vga_update() copies one into the
    other during the vertical blank, so each frame is shown atomically and
    render time can exceed one frame without tearing. */
 vga_char_t vga_text_buffer[VGA_ROWS][VGA_COLS];
@@ -712,7 +712,7 @@ void vga_print(int row, int col, const char *str, uint8_t fg, uint8_t bg) {
     }
 }
 
-void vga_wait_vblank(void) {
+void vga_update(void) {
     while (scanline_counter < VGA_HEIGHT) tight_loop_contents();
     /* Vblank started — scan is past the visible region. Promote the app's
        write buffer to the active (read-by-scanline) buffer. ~32 KB, well
@@ -889,7 +889,7 @@ uint32_t get_fattime(void) { return ((uint32_t)(2026-1980)<<25)|((uint32_t)5<<21
 void* ff_memalloc(UINT size) { return malloc(size); }
 void ff_memfree(void* m) { free(m); }
 
-// LittleFS — 360K "floppy" at end of 4MB flash
+// LittleFS — 360K built-in media at the end of the 4MB flash
 #define JAPI_LFS_SIZE (360 * 1024)
 #define JAPI_LFS_OFFSET (PICO_FLASH_SIZE_BYTES - JAPI_LFS_SIZE)
 static struct lfs_config *lfs_cfg;
@@ -914,14 +914,9 @@ static bool lfs_read_file(const char *path, void *data, lfs_size_t size) {
     return br == (lfs_ssize_t)size;
 }
 
-static void lfs_populate_defaults(void) {
-    lfs_write_file("config.sys", japi_default_config, strlen(japi_default_config));
-    for (int i = 0; i < JAPI_KBD_COUNT; i++) {
-        char fname[40];
-        snprintf(fname, sizeof(fname), "%s.kbd", japi_kbd_defaults[i].name);
-        lfs_write_file(fname, japi_kbd_defaults[i].data, JAPI_KBD_SIZE);
-    }
-}
+// No lfs_populate_defaults(): a fresh filesystem is EMPTY. A QWERTY_US user
+// needs no files at all; any other layout is supplied as a <name>.kbd file on
+// the removable media (A:) or copied by the user onto the built-in media (C:).
 
 static void lfs_init_filesystem(void) {
     set_sd_ss_pin(pin_sd_ss);
@@ -933,57 +928,89 @@ static void lfs_init_filesystem(void) {
     ctx->multicore_lockout_enabled = false;
 
     if (lfs_mount(&lfs, lfs_cfg) != LFS_ERR_OK) {
+        // Fresh flash (e.g. right after a UF2 upload): create an empty
+        // filesystem and leave it empty — nothing is pre-populated.
         if (lfs_format(&lfs, lfs_cfg) != LFS_ERR_OK) return;
         if (lfs_mount(&lfs, lfs_cfg) != LFS_ERR_OK) return;
-        lfs_populate_defaults();
-    } else {
-        char buf[64] = {0};
-        lfs_file_t f;
-        if (lfs_file_open(&lfs, &f, "config.sys", LFS_O_RDONLY) == LFS_ERR_OK) {
-            lfs_file_read(&lfs, &f, buf, sizeof(buf) - 1);
-            lfs_file_close(&lfs, &f);
-        }
-        if (strcmp(buf, japi_default_config) != 0)
-            lfs_write_file("config.sys", japi_default_config, strlen(japi_default_config));
     }
     lfs_mounted = true;
 }
 
-static void lfs_load_keyboard(void) {
-    if (!lfs_mounted) return;
-    char config_buf[128] = {0};
-    char keyboard_layout[32] = "QWERTY_US";
+// Parse a 'KEYBOARD MAPPING = <name>' line into out[]. True if a name was found.
+static bool parse_keyboard_mapping(const char *buf, char *out, int outsize) {
+    const char *match = strstr(buf, "KEYBOARD MAPPING = ");
+    if (!match) return false;
+    const char *value = match + 19;
+    int i = 0;
+    while (value[i] && value[i] != '\r' && value[i] != '\n' && i < outsize - 1) {
+        out[i] = value[i];
+        i++;
+    }
+    out[i] = '\0';
+    return i > 0;
+}
 
-    lfs_file_t f;
-    if (lfs_file_open(&lfs, &f, "config.sys", LFS_O_RDONLY) == LFS_ERR_OK) {
-        lfs_ssize_t br = lfs_file_read(&lfs, &f, config_buf, sizeof(config_buf) - 1);
-        lfs_file_close(&lfs, &f);
-        if (br > 0) {
-            config_buf[br] = '\0';
-            char *match = strstr(config_buf, "KEYBOARD MAPPING = ");
-            if (match) {
-                char *value = match + 19;
-                int i = 0;
-                while (value[i] && value[i] != '\r' && value[i] != '\n' && i < 31) {
-                    keyboard_layout[i] = value[i];
-                    i++;
+// Keyboard layout selection (see the flow-keyboard-target diagram):
+//   built-in QWERTY_US  ->  C: (LFS) config.sys + <name>.kbd  ->  A: (SD) ditto.
+// A mapping is only applied when its <name>.kbd file actually lives on that
+// medium, so a QWERTY_US user needs no files and an empty filesystem is fine.
+// removable media (A:) wins over the built-in media (C:).
+static void lfs_load_keyboard(void) {
+    char name[32];
+    uint8_t tmp[JAPI_KBD_SIZE];
+
+    // 0. Built-in default — the world's most common layout.
+    memcpy(japi_keymap, kbd_QWERTY_US, JAPI_KBD_SIZE);
+
+    // 1. Built-in media (C: / LFS): a user-written config.sys may name a
+    //    mapping whose <name>.kbd file is also stored on the built-in media.
+    if (lfs_mounted) {
+        char buf[128] = {0};
+        lfs_file_t f;
+        if (lfs_file_open(&lfs, &f, "config.sys", LFS_O_RDONLY) == LFS_ERR_OK) {
+            lfs_ssize_t br = lfs_file_read(&lfs, &f, buf, sizeof(buf) - 1);
+            lfs_file_close(&lfs, &f);
+            if (br > 0) {
+                buf[br] = '\0';
+                if (parse_keyboard_mapping(buf, name, sizeof(name))) {
+                    char fn[40];
+                    snprintf(fn, sizeof(fn), "%s.kbd", name);
+                    if (lfs_read_file(fn, tmp, JAPI_KBD_SIZE))
+                        memcpy(japi_keymap, tmp, JAPI_KBD_SIZE);
                 }
-                keyboard_layout[i] = '\0';
             }
         }
     }
 
-    char kbd_filename[40];
-    snprintf(kbd_filename, sizeof(kbd_filename), "%s.kbd", keyboard_layout);
-    if (!lfs_read_file(kbd_filename, japi_keymap, JAPI_KBD_SIZE)) {
-        snprintf(kbd_filename, sizeof(kbd_filename), "%s.KBD", keyboard_layout);
-        lfs_read_file(kbd_filename, japi_keymap, JAPI_KBD_SIZE);
+    // 2. Removable media (A: / SD): same scheme, and it overrides C:.
+    if (sd_mounted) {
+        FIL cf;
+        if (f_open(&cf, "0:/config.sys", FA_READ) == FR_OK) {
+            char buf[128] = {0};
+            UINT br = 0;
+            if (f_read(&cf, buf, sizeof(buf) - 1, &br) == FR_OK && br > 0) {
+                buf[br] = '\0';
+                if (parse_keyboard_mapping(buf, name, sizeof(name))) {
+                    char fn[48];
+                    snprintf(fn, sizeof(fn), "0:/%s.kbd", name);
+                    FIL kf;
+                    if (f_open(&kf, fn, FA_READ) == FR_OK) {
+                        UINT rd = 0;
+                        if (f_read(&kf, tmp, JAPI_KBD_SIZE, &rd) == FR_OK &&
+                            rd == JAPI_KBD_SIZE)
+                            memcpy(japi_keymap, tmp, JAPI_KBD_SIZE);
+                        f_close(&kf);
+                    }
+                }
+            }
+            f_close(&cf);
+        }
     }
 }
 
 // --- CPU clock: persistent target + runtime switch API ---
-// Stored in its own little file rather than config.sys, which is reset to the
-// compiled default on every boot (see lfs_init_filesystem).
+// Stored in its own little file rather than config.sys, which is user-owned
+// and may be absent.
 
 static int japi_read_clock_target(void) {
     char buf[8] = {0};
@@ -1168,8 +1195,17 @@ void japi_init(void) {
     dma_channel_configure(dma_chan_1, &c1, &pio->txf[sm_h], vga_line_buf_1,
                           VGA_WIDTH / 4, false);
 
-    // --- LittleFS: load keyboard layout from flash (before Core 1!) ---
-    // (filesystem was already mounted at the top of japi_init for the clock cfg)
+    // --- Removable media (A: / SD): mount BEFORE the keyboard load so a
+    //     config.sys on the card can override the built-in media (C: / LFS).
+    //     Must also happen before Core 1. ---
+    sleep_ms(100);
+    if (sd_init_driver()) {
+        if (f_mount(&fs, "0:", 1) == FR_OK)
+            sd_mounted = true;
+    }
+
+    // --- Keyboard layout: built-in QWERTY_US, optionally overridden by a
+    //     <name>.kbd named in config.sys on C: (LFS) then A: (SD). Before Core 1! ---
     lfs_load_keyboard();
 
     // --- Pre-render first two lines ---
@@ -1180,13 +1216,6 @@ void japi_init(void) {
     // --- Launch Core 1 (VGA engine) ---
     multicore_launch_core1(core1_engine_entry);
     multicore_fifo_pop_blocking();  // Wait for Core 1 to signal ready
-
-    // --- SD card: mount for user access (optional) ---
-    sleep_ms(100);
-    if (sd_init_driver()) {
-        if (f_mount(&fs, "0:", 1) == FR_OK)
-            sd_mounted = true;
-    }
 }
 
 // =========================================================================
@@ -1201,8 +1230,8 @@ static uint8_t japi_parse_drive(const char **path) {
     if ((*path)[1] == ':') {
         char d = (*path)[0];
         *path += 2;
-        if (d == 'C' || d == 'c') return FS_SD;
-        if (d == 'A' || d == 'a') return FS_LFS;
+        if (d == 'A' || d == 'a') return FS_SD;   // removable media (SD card)
+        if (d == 'C' || d == 'c') return FS_LFS;  // built-in media (LittleFS flash)
     }
     return FS_NONE;
 }

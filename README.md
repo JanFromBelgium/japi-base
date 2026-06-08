@@ -13,6 +13,9 @@ code, honest documentation, and no hidden defects.
 > switchable CPU clock) is working and verified on real hardware. A code editor
 > and a BASIC are planned as next steps.
 
+The complete **[Japi Base Manual](MANUAL.pdf)** (PDF) walks through building the
+board, the full C API and the demo.
+
 ## Features
 
 - **VGA output** — 1024×768 @ 60 Hz (exact VESA timing). Text mode of
@@ -21,11 +24,13 @@ code, honest documentation, and no hidden defects.
 - **Bitmap graphics** — a character-aligned bitmap window overlaid on the text
   screen. The buffer is capped at ~128 KB: up to 416×312 logical pixels at
   scale 1, or an almost full-screen 832×624 via 2×2 pixels at scale 2.
-- **PS/2 keyboard** — flexible driver with pluggable layouts
-  (AZERTY/QWERTY/QWERTZ); the active layout is chosen in `config.sys`.
-- **Storage** — a 360 KB LittleFS "flash floppy" (always available) plus an
-  optional micro-SD card when inserted, behind one unified DOS-style file API
-  (`A:` = flash floppy, `C:` = SD card). Both file I/O (`japi_fopen` /
+- **PS/2 keyboard** — QWERTY_US built in; any other layout (AZERTY, QWERTZ, …)
+  loads from a `<name>.kbd` file named in `config.sys` on the SD card or the
+  built-in media.
+- **Storage** — a 360 KB LittleFS area on the Pico's flash (always available)
+  plus an optional micro-SD card when inserted, behind one unified DOS-style
+  file API (`A:` = removable SD card, `C:` = built-in media). Both file I/O
+  (`japi_fopen` /
   `japi_fread` / …) and directory listing (`japi_opendir` / `japi_readdir`)
   are provided in the same API.
 - **Audio** — PWM stereo output with a built-in 4-channel wavetable synth
@@ -106,7 +111,7 @@ micro-SD adapter and reset button.*
 ### Schematic
 
 ![Japi Base schematic](images/hardware-schematic.png)
-*The complete Japi Base schematic — VGA, PS/2 (with 5 V / 3.3 V keyboard level select), microSD, stereo audio and a GPIO breakout. [Download as PDF](Japi_Base_schematic.pdf).*
+*The complete Japi Base schematic — VGA, PS/2 (with 5 V / 3.3 V keyboard level select), microSD, stereo audio and a GPIO breakout. [Download as PDF](Japi_Base_schematic.pdf).* See the **[Japi Base Manual](MANUAL.pdf)** for the full build walk-through.
 
 ### VGA — weighted-resistor DAC
 
@@ -172,8 +177,8 @@ GP13 ── CS       3.3V ──┬── VCC         Pico GND ── GND
 ```
 
 Card-detect is intentionally disabled (a background IRQ would disturb the VGA
-scanline timing). The SD card is optional — the system boots from the LittleFS
-flash floppy without it.
+scanline timing). The SD card is optional — the system boots from the built-in
+media without it.
 
 ### Reset button
 
@@ -190,10 +195,14 @@ RUN ──┬── [button] ── GND
 
 ## Timing & memory budget
 
-- CPU at **260 MHz**, PIO divider 1:1, 4 ticks/pixel → exact **65 MHz** pixel
-  clock for 1024×768@60 Hz.
+- The figures below are for the **260 MHz baseline tier**; the higher tiers
+  keep the same 65 MHz dot clock but give your code proportionally more
+  cycles per scanline.
+- At 260 MHz the PIO runs 4 ticks/pixel (divider 1:1) → exact **65 MHz**
+  pixel clock for 1024×768@60 Hz. At 324 / 390 MHz the PIO divider is
+  retuned so the dot clock stays 65 MHz and the picture is unchanged.
 - 806 scanlines × 60 Hz ≈ **5374 CPU cycles per scanline** for the base
-  engine (rendering + keyboard + audio).
+  engine (rendering + keyboard + audio) at the 260 MHz baseline.
 - Audio: PWM at 40 kHz, sample rate **24 180 Hz** (one sample every two
   scanlines) to keep per-scanline IRQ work bounded.
 - Bitmap buffer cap: **128 KB** (`JAPI_BITMAP_MAX_RAM`). The demo's full-screen
@@ -232,7 +241,7 @@ int main(void) {
     japi_play(NOTE_C5, 200);                      // a short beep
 
     for (;;) {
-        vga_wait_vblank();                        // publish writes to the screen
+        vga_update();                        // publish writes to the screen
         if (japi_has_char()) {
             uint16_t k = japi_get_char();
             if (k == JAPI_KEY_ESCAPE) break;
@@ -243,7 +252,7 @@ int main(void) {
 ```
 
 `vga_set_char` / `vga_print` / `vga_clear` write into a back buffer; the
-scanline reads from a separate front buffer. `vga_wait_vblank()` swaps
+scanline reads from a separate front buffer. `vga_update()` swaps
 them during the vertical blanking interval, so each frame is shown
 atomically (no tearing, no half-finished updates), and your render can
 take longer than a single frame without consequence. The convention is
@@ -273,6 +282,7 @@ brief reboot that lands one tier lower.
 | Path | Contents |
 |---|---|
 | `Japi Base Pico 2/` | The complete Pico 2 firmware (engine + demo) |
+| `keyboard layouts/` | Ready-made `.kbd` files for non-US keyboards, selected via `config.sys` (see the manual) |
 | `images/` | Screenshots and GIFs used in this README |
 | `LICENSE` | GNU GPL v3 |
 | `README.md` | This file |
@@ -286,10 +296,31 @@ brief reboot that lands one tier lower.
 | `demo.c` / `demo.h` | Demo application (showcase, bouncing balls, Starry Night, API reference, CPU benchmark) and its dithered demo image |
 | `third_party_libs.c` / `.h` | Third-party libraries needed by the core engine — FatFs (ChaN), SD-over-SPI driver (carlk3), littlefs, pico-lfs — all consolidated, with per-component licence headers and the SD/SPI pin glue at the bottom |
 | `font_8x12.h` | 8×12 bitmap font, CP437 + box-drawing glyphs |
-| `japi_kbd_defaults.h` | Built-in PS/2 keyboard layouts (AZERTY/QWERTY/QWERTZ) |
+| `japi_kbd_defaults.h` | The built-in QWERTY_US keyboard layout (other layouts load from a `.kbd` file on the media) |
 | `CMakeLists.txt`, `pico_sdk_import.cmake` | Build configuration / Pico SDK loader |
 
 The previous Pico 1 (RP2040) prototype is archived outside this repository.
+
+## Versioning
+
+Japi Base uses a Linux-style even/odd version scheme, so the version number
+alone tells you whether a release is stable or experimental:
+
+- **Even major versions are production releases** — stable and ready to build
+  on (2.0, 2.2, 4.0 …). Bugfix-only updates increment the minor number
+  (2.0 → 2.1 → 2.2).
+- **Odd major versions are development releases** — work in progress on new
+  platform features (3.0, 3.1 …). When that work is finished and stable it
+  graduates to the next even production version.
+
+This scheme covers **Japi Base the platform only** — the I/O engine in this
+repository. Japi Base is meant to be built on: you can write your own program
+on top of it without anything else. Separate products that build on Japi Base
+— the **Japi Base Editor (JBE)** and a BASIC, together forming the full
+**Japi Base Computer** — live in their own repositories and carry their own
+version numbers. They never bump the Japi Base version on their own; the
+platform only gets a new release when the platform itself changes (for
+example, a fix in the engine that every application benefits from).
 
 ## Roadmap
 
@@ -299,6 +330,22 @@ The previous Pico 1 (RP2040) prototype is archived outside this repository.
 - Integrate my japiZ80 assembler.
 - A Z80 emulator
 - A build/usage manual once the feature set is stable.
+
+## Contributing
+
+Japi Base is meant to be forked and built on. If you make something with it, I'd
+love to hear about it.
+
+- **Found a bug, or have a suggestion?** Open an
+  [issue](https://github.com/JanFromBelgium/japi-base/issues).
+- **Want to improve the platform?** Pull requests are welcome — you don't have to
+  be an expert to send one. Japi Base itself is written in collaboration with an
+  AI assistant, so we're all learning here.
+- **Built a layout, a demo or an app on top of it?** Tell me in an issue; I enjoy
+  seeing where people take it.
+
+For a larger change, opening an issue to discuss it first is usually the
+smoothest path.
 
 ## Credits
 
