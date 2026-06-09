@@ -47,6 +47,9 @@ bi_decl(bi_ptr_int32(0x1111, FG_KEYB, pin_keyb_data, PIN_KEYB_DATA));
 bi_decl(bi_ptr_int32(0x1111, FG_KEYB, pin_keyb_clk, PIN_KEYB_CLK));
 
 bi_decl(bi_ptr_int32(0x1111, FG_SD_CARD, pin_sd_ss, PIN_SD_SS));
+bi_decl(bi_1pin_with_name(PIN_SD_MISO, "PIN_SD_MISO"));
+bi_decl(bi_1pin_with_name(PIN_SD_MOSI, "PIN_SD_MOSI"));
+bi_decl(bi_1pin_with_name(PIN_SD_SCK, "PIN_SD_SCK"));
 
 // =========================================================================
 // INTERNAL STATE
