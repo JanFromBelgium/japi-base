@@ -111,7 +111,7 @@ micro-SD adapter and reset button.*
 ### Schematic
 
 ![Japi Base schematic](images/hardware-schematic.png)
-*The complete Japi Base schematic — VGA, PS/2 (with 5 V / 3.3 V keyboard level select), microSD, stereo audio and a GPIO breakout. [Download as PDF](Japi_Base_schematic.pdf).* See the **[Japi Base Manual](MANUAL.pdf)** for the full build walk-through.
+*The complete Japi Base schematic — VGA, PS/2 (with 5 V / 3.3 V keyboard level select), microSD, stereo audio and a GPIO breakout. [Download as PDF](images/Japi_Base_schematic.pdf).* See the **[Japi Base Manual](MANUAL.pdf)** for the full build walk-through.
 
 ### VGA — weighted-resistor DAC
 
