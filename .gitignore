@@ -10,6 +10,7 @@ KiCad/
 # Dev tooling — lokaal behouden, niet publiceren
 tools/
 sim/
+tests/
 Font Editor/
 
 # Interne Nederlandse planning/context docs — niet publiceren

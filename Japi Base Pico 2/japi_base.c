@@ -18,6 +18,7 @@
 #include "third_party_libs.h"
 #include "japi_kbd_defaults.h"
 #include "pico/binary_info.h"
+#include "japi_pin_config.h"
 
 bi_decl(bi_program_version_string("Japi Base Version"));
 bi_decl(bi_program_url("https://github.com/JanFromBelgium/japi-base"));
@@ -1046,6 +1047,28 @@ bool japi_set_cpu_clock(int mhz) {
 }
 
 void japi_init(void) {
+    // --- Sanitise the (picotool-configurable) GPIO assignments before any
+    //     hardware uses them. An out-of-range or inconsistent pin set for a
+    //     subsystem is reverted to the compiled-in defaults so the board always
+    //     comes up usable. The pure validator lives in japi_pin_config.c. ---
+    japi_pins_t pins = {
+        .rgb_base  = pin_rgb_base, .hsync = pin_hsync, .vsync = pin_vsync,
+        .audio_l   = pin_audio_l,
+        .keyb_data = pin_keyb_data, .keyb_clk = pin_keyb_clk,
+        .sd_ss     = pin_sd_ss,
+    };
+    static const japi_pins_t pin_defaults = {
+        .rgb_base  = PIN_RGB_BASE, .hsync = PIN_HSYNC, .vsync = PIN_VSYNC,
+        .audio_l   = PIN_AUDIO_L,
+        .keyb_data = PIN_KEYB_DATA, .keyb_clk = PIN_KEYB_CLK,
+        .sd_ss     = PIN_SD_SS,
+    };
+    japi_validate_pins(&pins, &pin_defaults);
+    pin_rgb_base  = pins.rgb_base;  pin_hsync = pins.hsync;  pin_vsync = pins.vsync;
+    pin_audio_l   = pins.audio_l;
+    pin_keyb_data = pins.keyb_data; pin_keyb_clk = pins.keyb_clk;
+    pin_sd_ss     = pins.sd_ss;
+
     // --- Filesystem first: the desired CPU clock lives in flash and must be
     //     read before we set the clock and pick the matching VGA program. ---
     lfs_init_filesystem();
