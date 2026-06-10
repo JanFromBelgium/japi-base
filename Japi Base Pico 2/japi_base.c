@@ -349,9 +349,11 @@ static void audio_init(void) {
 // BITMAP OVERLAY STATE
 // =========================================================================
 
-#define JAPI_BITMAP_MAX_RAM 131072
+// JAPI_BITMAP_MAX_RAM comes from japi_base.h (shared with the host simulator).
 
-static uint8_t *bitmap_buf = NULL;
+static uint8_t *bitmap_buf  = NULL; // the buffer the scanline render reads (front)
+static uint8_t *bitmap_work = NULL; // back buffer the program draws into (double-buffer only)
+static bool bitmap_double   = false;// true => draw into bitmap_work, swap on vga_update()
 static int bitmap_px_x   = 0;   // screen pixel offset (x) of top-left
 static int bitmap_px_y   = 0;   // screen pixel offset (y) of top-left
 static int bitmap_px_w   = 0;   // width in screen pixels
@@ -359,6 +361,12 @@ static int bitmap_px_h   = 0;   // height in screen pixels
 static int bitmap_log_w  = 0;   // logical (buffer) width in pixels
 static int bitmap_log_h  = 0;   // logical (buffer) height in pixels
 static int bitmap_scale  = 1;   // 1 or 2
+
+// The buffer the program draws into: the back buffer when double-buffered,
+// otherwise the single (live) buffer.
+static uint8_t *bitmap_draw_target(void) {
+    return bitmap_double ? bitmap_work : bitmap_buf;
+}
 
 // =========================================================================
 // VGA RENDERING
@@ -722,6 +730,12 @@ void vga_update(void) {
        write buffer to the active (read-by-scanline) buffer. ~32 KB, well
        within the vertical blanking window. */
     memcpy(vga_text_active, vga_text_buffer, sizeof(vga_text_active));
+    /* Double-buffered bitmap: promote the program's back buffer to the screen.
+       We are in vblank (scan past the visible region), so swapping the pointer
+       the scanline render reads is safe -- and far cheaper than a copy. */
+    if (bitmap_double) {
+        uint8_t *t = bitmap_buf; bitmap_buf = bitmap_work; bitmap_work = t;
+    }
 }
 
 void vga_redefine_char(uint8_t code, const uint8_t bitmap[FONT_H]) {
@@ -732,7 +746,8 @@ void vga_redefine_char(uint8_t code, const uint8_t bitmap[FONT_H]) {
 // BITMAP PUBLIC API
 // =========================================================================
 
-bool japi_bitmap_open(int col, int row, int w_chars, int h_chars, int scale) {
+bool japi_bitmap_open(int col, int row, int w_chars, int h_chars, int scale,
+                      bool double_buffered) {
     if (bitmap_buf) return false;
     if (scale != 1 && scale != 2) return false;
     int pw = w_chars * FONT_W;
@@ -745,36 +760,50 @@ bool japi_bitmap_open(int col, int row, int w_chars, int h_chars, int scale) {
     if ((uint32_t)lw * lh > JAPI_BITMAP_MAX_RAM) return false;
     uint8_t *buf = malloc(lw * lh);
     if (!buf) return false;
+    uint8_t *work = NULL;
+    if (double_buffered) {
+        work = malloc(lw * lh);              // second buffer; bail cleanly if it won't fit
+        if (!work) { free(buf); return false; }
+        memset(work, VGA_BLACK, lw * lh);
+    }
     memset(buf, VGA_BLACK, lw * lh);
-    bitmap_px_x  = col * FONT_W;  // PADDING TEST: text now flush-left
-    bitmap_px_y  = row * FONT_H;
-    bitmap_px_w  = pw;
-    bitmap_px_h  = ph;
-    bitmap_log_w = lw;
-    bitmap_log_h = lh;
-    bitmap_scale = scale;
-    bitmap_buf   = buf;
+    bitmap_px_x   = col * FONT_W;  // PADDING TEST: text now flush-left
+    bitmap_px_y   = row * FONT_H;
+    bitmap_px_w   = pw;
+    bitmap_px_h   = ph;
+    bitmap_log_w  = lw;
+    bitmap_log_h  = lh;
+    bitmap_scale  = scale;
+    bitmap_double = double_buffered;
+    bitmap_work   = work;
+    bitmap_buf    = buf;
     return true;
 }
 
 void japi_bitmap_close(void) {
-    uint8_t *buf = bitmap_buf;
-    bitmap_buf = NULL;
+    uint8_t *buf  = bitmap_buf;
+    uint8_t *work = bitmap_work;
+    bitmap_buf    = NULL;
+    bitmap_work   = NULL;
+    bitmap_double = false;
     free(buf);
+    free(work);
 }
 
 void japi_bitmap_pixel(int x, int y, uint8_t colour) {
-    if (bitmap_buf && x >= 0 && x < bitmap_log_w && y >= 0 && y < bitmap_log_h)
-        bitmap_buf[y * bitmap_log_w + x] = colour;
+    uint8_t *t = bitmap_draw_target();
+    if (t && x >= 0 && x < bitmap_log_w && y >= 0 && y < bitmap_log_h)
+        t[y * bitmap_log_w + x] = colour;
 }
 
 void japi_bitmap_clear(uint8_t colour) {
-    if (bitmap_buf)
-        memset(bitmap_buf, colour, bitmap_log_w * bitmap_log_h);
+    uint8_t *t = bitmap_draw_target();
+    if (t)
+        memset(t, colour, bitmap_log_w * bitmap_log_h);
 }
 
 uint8_t *japi_bitmap_buffer(void) {
-    return bitmap_buf;
+    return bitmap_draw_target();
 }
 
 int japi_bitmap_width(void) {

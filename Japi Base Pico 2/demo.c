@@ -151,7 +151,7 @@ static void page_showcase(void) {
     // --- Bitmap Graphics Demo (right of palette) ---
     // Four audio waveforms overlaid on a black "scope" background.
     int bm_col = 52, bm_row = 6, bm_w = 73, bm_h = 8;
-    japi_bitmap_open(bm_col, bm_row, bm_w, bm_h, 1);
+    japi_bitmap_open(bm_col, bm_row, bm_w, bm_h, 1, false);
     int bpw = japi_bitmap_width(), bph = japi_bitmap_height();
     uint8_t *bbuf = japi_bitmap_buffer();
     memset(bbuf, VGA_BLACK, bpw * bph);
@@ -615,7 +615,7 @@ static bool open_bitmap_page(const char *title, int *W, int *H, uint8_t **buf) {
 
     // 104 x 52 chars at scale=2 -> 832 x 624 px = 519,168 bytes (peak RAM).
     // Centered: col=11 (11 free L, 12 free R), row=6 (5 free top, 6 free bottom).
-    if (!japi_bitmap_open(11, 6, 104, 52, 2)) {
+    if (!japi_bitmap_open(11, 6, 104, 52, 2, false)) {
         vga_print(30, 30, "Bitmap allocation failed!", VGA_RED, BG);
         wait_key();
         return false;

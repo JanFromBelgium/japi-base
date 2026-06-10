@@ -258,14 +258,29 @@ void vga_update(void);
 void vga_redefine_char(uint8_t code, const uint8_t new_bitmap[FONT_H]);
 
 // --- BITMAP GRAPHICS ---
+// A character-aligned bitmap window overlaid on the text screen. 1 byte per
+// pixel, 6-bit colour (RRGGBB). One window at a time.
+//
 // scale = 1: 1 logical pixel = 1 screen pixel
 // scale = 2: 1 logical pixel = 2x2 screen pixels (quarters the buffer size).
 //            w_chars MUST be even at scale=2 (the renderer expands pixels in
 //            8-wide blocks); japi_bitmap_open() returns false otherwise.
-// Buffer is (w_chars*8/scale) x (h_chars*12/scale) bytes, must be <= JAPI_BITMAP_MAX_RAM
-#define JAPI_BITMAP_MAX_RAM 131072
+//
+// double_buffered = false: one buffer; pixel writes are immediately visible (can
+//   tear during animation) and the least RAM is used, leaving the most for the
+//   program's variables. Best for static images and data plots.
+// double_buffered = true: two buffers; the program draws into a back buffer that
+//   is swapped to the screen on vga_update() (tear-free, smooth animation) at the
+//   cost of twice the bitmap RAM. Best for games.
+//
+// The logical buffer is (w_chars*8/scale) x (h_chars*12/scale) bytes and must be
+// <= JAPI_BITMAP_MAX_RAM (double buffering allocates two such buffers). The cap
+// (504x384 = 189 KB) is the largest char-aligned window: 126 cols (even, scale 2)
+// x 64 rows. A full-height/near-full-width graphics screen fits in one window.
+#define JAPI_BITMAP_MAX_RAM 193536
 
-bool     japi_bitmap_open(int col, int row, int w_chars, int h_chars, int scale);
+bool     japi_bitmap_open(int col, int row, int w_chars, int h_chars, int scale,
+                          bool double_buffered);
 void     japi_bitmap_close(void);
 void     japi_bitmap_pixel(int x, int y, uint8_t colour);
 void     japi_bitmap_clear(uint8_t colour);
