@@ -627,6 +627,17 @@ static void __not_in_flash_func(vga_dma_handler)(void) {
             }
         }
 
+        // Physical Tab key (scancode 0x0D): emit plain / Ctrl / Shift variants
+        // so applications can tell Ctrl+Tab and Shift+Tab apart from a plain
+        // Tab. Done before the keymap lookup so it is independent of the layout.
+        // Ctrl+I keeps mapping to TAB below -- it has a different scancode.
+        if (sc == 0x0D) {
+            if      (ps2_ctrl_any)  result = JAPI_KEY_CTAB;
+            else if (ps2_shift_any) result = JAPI_KEY_STAB;
+            else                    result = JAPI_KEY_TAB;
+            kbd_push(result); continue;
+        }
+
         {
             uint16_t index;
             if (ps2_altgr) index = sc + 512;
@@ -641,22 +652,14 @@ static void __not_in_flash_func(vga_dma_handler)(void) {
                 // Ctrl + any other printable ASCII -> JAPI_KEY_CTRL_BASE | c
                 //   (so e.g. Ctrl+_, Ctrl+/, Ctrl+1 are distinguishable from the
                 //   plain character by the application).
-                // Ctrl + the physical Tab key -> JAPI_KEY_CTAB (distinct code).
-                //   The keymap yields 0x09 only for the Tab key here; Ctrl+I
-                //   arrives as 'i' and still becomes TAB below, so the two stay
-                //   separable.
-                if (result == JAPI_KEY_TAB) {
-                    result = JAPI_KEY_CTAB;
-                } else {
-                    char up = 0;
-                    if (result >= 'a' && result <= 'z')      up = result - 32;
-                    else if (result >= 'A' && result <= 'Z') up = result;
-                    if (up == 'H')      result = JAPI_KEY_BACKSPACE;
-                    else if (up == 'I') result = JAPI_KEY_TAB;
-                    else if (up == 'M') result = JAPI_KEY_ENTER;
-                    else if (up)        result = JAPI_KEY_CTRL_BASE | up;
-                    else if (result >= 0x20 && result < 0x80) result = JAPI_KEY_CTRL_BASE | result;
-                }
+                char up = 0;
+                if (result >= 'a' && result <= 'z')      up = result - 32;
+                else if (result >= 'A' && result <= 'Z') up = result;
+                if (up == 'H')      result = JAPI_KEY_BACKSPACE;
+                else if (up == 'I') result = JAPI_KEY_TAB;
+                else if (up == 'M') result = JAPI_KEY_ENTER;
+                else if (up)        result = JAPI_KEY_CTRL_BASE | up;
+                else if (result >= 0x20 && result < 0x80) result = JAPI_KEY_CTRL_BASE | result;
             }
             if (!ps2_ctrl_any && ps2_caps_lock) {
                 if (result >= 'a' && result <= 'z') result -= 32;

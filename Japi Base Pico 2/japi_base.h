@@ -211,10 +211,12 @@
 #define JAPI_KEY_CTRL_BASE  0x0300
 #define JAPI_KEY_CTRL(c)    (JAPI_KEY_CTRL_BASE | (uint16_t)(c))
 
-// Ctrl+Tab gets its own code so applications can tell it apart from a plain
-// Tab (which stays 0x09, the terminal convention). Unlike Ctrl+I -- which the
-// layer keeps mapping to TAB -- the physical Tab key with Ctrl held yields this.
+// Ctrl+Tab and Shift+Tab get their own codes so applications can tell them
+// apart from a plain Tab (which stays 0x09, the terminal convention). Unlike
+// Ctrl+I -- which the layer keeps mapping to TAB -- the physical Tab key with
+// Ctrl or Shift held yields these. (Ctrl wins if both are held.)
 #define JAPI_KEY_CTAB       (JAPI_KEY_CTRL_BASE | JAPI_KEY_TAB)   // 0x0309
+#define JAPI_KEY_STAB       0x0154                                // Shift+Tab
 
 // =========================================================================
 // VGA DATA STRUCTURES
