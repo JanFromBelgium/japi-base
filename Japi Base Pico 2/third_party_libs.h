@@ -2049,9 +2049,9 @@ int lfs_migrate(lfs_t *lfs, const struct lfs_config *cfg);
 #endif
 /* ===== End lfs.h ===== */
 
-/* The GPL-3 pico-lfs flash adapter that used to live here is gone; Japi Base
-   provides its own littlefs block device in japi_base.c (no GPL-only code).
-   Only this SD chip-select setter (defined in third_party_libs.c) remains. */
+/* Japi Base's own littlefs flash block device lives in japi_base.c (no embedded
+   third-party flash adapter, so no copyleft code). Only this SD chip-select
+   setter (defined in third_party_libs.c) is declared here. */
 void set_sd_ss_pin(uint32_t sd_ss_pin);
 
 #endif /* THIRD_PARTY_LIBS_H */

@@ -10,7 +10,7 @@ visible from the code alone. For the *what* and *how to build*, read
 
 The entire firmware lives in `Japi Base Pico 2/` and the public API
 fits in two files: `japi_base.h` (engine API) and `third_party_libs.h`
-(consolidated FatFs + littlefs + pico-lfs). See the README's
+(consolidated FatFs + littlefs). See the README's
 "Repository layout" section for the per-file breakdown.
 
 ## Coding conventions
@@ -70,6 +70,6 @@ to 260 MHz at 1.30 V (set in CMakeLists / boot code).
 
 ## Licence
 
-BSD-3-Clause. The GPL-3 pico-lfs adapter was replaced by Japi Base's own
-littlefs flash block device, so the whole work is permissive now.
+BSD-3-Clause. Japi Base uses its own littlefs flash block device (in
+`japi_base.c`), so the whole work is permissively licensed.
 See [`LICENSE`](LICENSE).

@@ -213,8 +213,8 @@ RUN ──┬── [button] ── GND
 ## Building
 
 Requirements: Raspberry Pi Pico SDK 2.x (`PICO_SDK_PATH` set), CMake, Ninja,
-`arm-none-eabi-gcc`. Third-party libraries (FatFs_SPI, pico-lfs/littlefs) are
-vendored, so no extra fetching is needed.
+`arm-none-eabi-gcc`. Third-party libraries (FatFs_SPI, littlefs) are vendored, so
+no extra fetching is needed.
 
 ```sh
 cd "Japi Base Pico 2"
@@ -284,7 +284,7 @@ brief reboot that lands one tier lower.
 | `Japi Base Pico 2/` | The complete Pico 2 firmware (engine + demo) |
 | `keyboard layouts/` | Ready-made `.kbd` files for non-US keyboards, selected via `config.sys` (see the manual) |
 | `images/` | Screenshots and GIFs used in this README |
-| `LICENSE` | GNU GPL v3 |
+| `LICENSE` | BSD 3-Clause |
 | `README.md` | This file |
 | `context.md` | Project conventions and workflow for AI-assisted coding |
 
@@ -294,7 +294,7 @@ brief reboot that lands one tier lower.
 |---|---|
 | `japi_base.c` / `.h` / `.pio` | The core engine: VGA output, keyboard input, audio output and file I/O |
 | `demo.c` / `demo.h` | Demo application (showcase, bouncing balls, Starry Night, API reference, CPU benchmark) and its dithered demo image |
-| `third_party_libs.c` / `.h` | Third-party libraries needed by the core engine — FatFs (ChaN), SD-over-SPI driver (carlk3), littlefs, pico-lfs — all consolidated, with per-component licence headers and the SD/SPI pin glue at the bottom |
+| `third_party_libs.c` / `.h` | Third-party libraries needed by the core engine — FatFs (ChaN), SD-over-SPI driver (carlk3), littlefs — all consolidated, with per-component licence headers and the SD/SPI pin glue at the bottom (the flash block device for littlefs is Japi Base's own code, in `japi_base.c`) |
 | `font_8x12.h` | 8×12 bitmap font, CP437 + box-drawing glyphs |
 | `japi_kbd_defaults.h` | The built-in QWERTY_US keyboard layout (other layouts load from a `.kbd` file on the media) |
 | `CMakeLists.txt`, `pico_sdk_import.cmake` | Build configuration / Pico SDK loader |

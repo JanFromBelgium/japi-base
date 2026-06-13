@@ -657,7 +657,7 @@ static void page_api(void) {
 
     for (int c = 0; c < VGA_COLS; c++) vga_set_char(0, c, ' ', VGA_BLACK, VGA_CYAN);
     vga_print(0, 2, "JAPI BASE API  -  Quick Reference", VGA_BLACK, VGA_CYAN);
-    vga_print(0, 50, "FatFs: carlk3  |  pico-lfs: T. Kokkonen", VGA_BLACK, VGA_CYAN);
+    vga_print(0, 50, "FatFs: carlk3  |  littlefs: littlefs authors", VGA_BLACK, VGA_CYAN);
 
     int L1 = 1, L2 = 62;
     int R1 = 64, R2 = 125;

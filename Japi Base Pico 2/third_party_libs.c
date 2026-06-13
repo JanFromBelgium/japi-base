@@ -24758,8 +24758,8 @@ static bool sd_test_com(sd_card_t *pSD) {
  *   3-clause notice is preserved. Software provided "AS IS".
  *
  *   The flash block device that ties littlefs to the RP2350 lives in
- *   japi_base.c (Japi Base's own code). The previous GPL-3 pico-lfs
- *   adapter has been removed, so littlefs here is plain BSD-3-Clause.
+ *   japi_base.c (Japi Base's own code, no third-party flash adapter),
+ *   so littlefs here is plain BSD-3-Clause.
  * ============================================================
  */
 
@@ -31361,8 +31361,8 @@ int lfs_migrate(lfs_t *lfs, const struct lfs_config *cfg) {
 
 /* ===== End lfs.c ===== */
 
-/* The GPL-3 pico-lfs flash adapter formerly embedded here is gone; Japi Base
-   provides its own littlefs block device in japi_base.c (no GPL-only code). */
+/* Japi Base's own littlefs flash block device lives in japi_base.c (its own
+   code; no third-party flash adapter is embedded here). */
 
 /* ===========================================================================
  * Japi Base hardware configuration (SD card pin map + carlk3 callbacks)
