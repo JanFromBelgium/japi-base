@@ -353,15 +353,19 @@ smoothest path.
 ## Credits
 
 - **FatFs_SPI** — SD card over SPI, by carlk3.
-- **pico-lfs** — LittleFS for RP2040/RP2350, by Timo Kokkonen.
 - **littlefs** — the littlefs project.
 - *The Starry Night* (Vincent van Gogh, 1889) — public domain, via Wikimedia
   Commons / Google Art Project.
 
 ## License
 
-Released under the **GNU General Public License v3 or later** — see
-[`LICENSE`](LICENSE) for the full text.
+Released under the **BSD 3-Clause License** — see [`LICENSE`](LICENSE) for the
+full text. You are free to use, modify and redistribute Japi Base, including in
+closed-source projects, as long as you keep the copyright notice and licence (in
+your source, and for binaries in your documentation or credits).
+
+*A friendly request, not a requirement:* if you build something on Japi Base, a
+mention that it is "built on Japi Base" is always appreciated.
 
 The third-party libraries consolidated into `third_party_libs.c` keep their
 original notices (visible in the licence block at the top of that file):
@@ -369,7 +373,6 @@ original notices (visible in the licence block at the top of that file):
 - **FatFs** (ChaN) — BSD 1-clause style
 - **SD-over-SPI driver** (Carl John Kugler III) — Apache 2.0
 - **littlefs** — BSD-3-Clause
-- **pico-lfs** (Timo Kokkonen) — GPL-3.0-or-later
 
-The GPL-3 component (pico-lfs) is what makes the combined Japi Base binary
-GPL-3 as distributed.
+The flash adapter that ties littlefs to the RP2350 is Japi Base's own code (in
+`japi_base.c`), so the whole project is permissively licensed — no copyleft.

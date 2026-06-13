@@ -57,4 +57,5 @@ A revision B with larger pads is being tested.
 ## Good to know
 - Flash the firmware from the project's
   [**Releases**](https://github.com/JanFromBelgium/japi-base/releases) page.
-- **Licence:** GPL-3.0-or-later. Open hardware — build it, change it, share it.
+- **Licence:** BSD-3-Clause (same as the firmware). Open hardware — build it,
+  change it, share it; a mention that it is based on Japi Base is appreciated.

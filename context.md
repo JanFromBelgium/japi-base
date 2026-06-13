@@ -70,5 +70,6 @@ to 260 MHz at 1.30 V (set in CMakeLists / boot code).
 
 ## Licence
 
-GPL-3.0-or-later for the combined work (because pico-lfs is GPL-3).
+BSD-3-Clause. The GPL-3 pico-lfs adapter was replaced by Japi Base's own
+littlefs flash block device, so the whole work is permissive now.
 See [`LICENSE`](LICENSE).
