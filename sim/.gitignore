@@ -1,0 +1,13 @@
+# Build artifacts
+seam_app
+sim_demo
+sim_test
+sim_bitmap_test
+sim_gfx_demo
+jbe
+jbe_test
+*.o
+
+# The simulator's virtual disks (local test data)
+simdisk_A/
+simdisk_C/

@@ -7,9 +7,11 @@ KiCad/
 *.d
 *.wav
 
+# The host simulator is part of the platform: published and maintained here.
+# (Its own build artifacts and virtual disks are ignored by sim/.gitignore.)
+
 # Dev tooling — lokaal behouden, niet publiceren
 tools/
-sim/
 tests/
 Font Editor/
 
