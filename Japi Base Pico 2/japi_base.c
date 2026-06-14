@@ -570,8 +570,8 @@ static void __not_in_flash_func(vga_dma_handler)(void) {
                 case 0x7A: result = JAPI_KEY_PGDN;    break;
                 case 0x70: result = JAPI_KEY_INSERT;  break;
                 case 0x71: result = JAPI_KEY_DELETE;   break;
-                case 0x4A: result = JAPI_KEY_NUM_DIV;  break;
-                case 0x5A: result = JAPI_KEY_NUM_ENTER; break;
+                case 0x4A: result = '/';            break;  /* keypad / always types '/' */
+                case 0x5A: result = 0x0D;            break;  /* keypad Enter == Enter */
                 case 0x7C:
                     /* PrintScreen: GLOBAL screenshot hotkey. Raise the request
                        and deliver no key, so it works everywhere -- in the
@@ -624,21 +624,25 @@ static void __not_in_flash_func(vga_dma_handler)(void) {
 
         {
             uint16_t numkey_on = 0, numkey_off = 0;
+            // With Num Lock on, the keypad types plain ASCII digits/operators so
+            // it works as a numeric pad everywhere (the editor and BASIC only
+            // accept 0x20..0x7E). With Num Lock off it keeps its navigation
+            // meaning (arrows/Home/End/PgUp/PgDn/Ins/Del).
             switch (sc) {
-                case 0x70: numkey_on = JAPI_KEY_NUM0;    numkey_off = JAPI_KEY_INSERT; break;
-                case 0x69: numkey_on = JAPI_KEY_NUM1;    numkey_off = JAPI_KEY_END;    break;
-                case 0x72: numkey_on = JAPI_KEY_NUM2;    numkey_off = JAPI_KEY_DOWN;   break;
-                case 0x7A: numkey_on = JAPI_KEY_NUM3;    numkey_off = JAPI_KEY_PGDN;   break;
-                case 0x6B: numkey_on = JAPI_KEY_NUM4;    numkey_off = JAPI_KEY_LEFT;   break;
-                case 0x73: numkey_on = JAPI_KEY_NUM5;    numkey_off = 0;               break;
-                case 0x74: numkey_on = JAPI_KEY_NUM6;    numkey_off = JAPI_KEY_RIGHT;  break;
-                case 0x6C: numkey_on = JAPI_KEY_NUM7;    numkey_off = JAPI_KEY_HOME;   break;
-                case 0x75: numkey_on = JAPI_KEY_NUM8;    numkey_off = JAPI_KEY_UP;     break;
-                case 0x7D: numkey_on = JAPI_KEY_NUM9;    numkey_off = JAPI_KEY_PGUP;   break;
-                case 0x71: numkey_on = JAPI_KEY_NUM_DOT; numkey_off = JAPI_KEY_DELETE; break;
-                case 0x79: numkey_on = JAPI_KEY_NUM_PLUS; numkey_off = JAPI_KEY_NUM_PLUS; break;
-                case 0x7B: numkey_on = JAPI_KEY_NUM_MINUS; numkey_off = JAPI_KEY_NUM_MINUS; break;
-                case 0x7C: numkey_on = JAPI_KEY_NUM_MUL; numkey_off = JAPI_KEY_NUM_MUL; break;
+                case 0x70: numkey_on = '0'; numkey_off = JAPI_KEY_INSERT; break;
+                case 0x69: numkey_on = '1'; numkey_off = JAPI_KEY_END;    break;
+                case 0x72: numkey_on = '2'; numkey_off = JAPI_KEY_DOWN;   break;
+                case 0x7A: numkey_on = '3'; numkey_off = JAPI_KEY_PGDN;   break;
+                case 0x6B: numkey_on = '4'; numkey_off = JAPI_KEY_LEFT;   break;
+                case 0x73: numkey_on = '5'; numkey_off = 0;               break;
+                case 0x74: numkey_on = '6'; numkey_off = JAPI_KEY_RIGHT;  break;
+                case 0x6C: numkey_on = '7'; numkey_off = JAPI_KEY_HOME;   break;
+                case 0x75: numkey_on = '8'; numkey_off = JAPI_KEY_UP;     break;
+                case 0x7D: numkey_on = '9'; numkey_off = JAPI_KEY_PGUP;   break;
+                case 0x71: numkey_on = '.'; numkey_off = JAPI_KEY_DELETE; break;
+                case 0x79: numkey_on = '+'; numkey_off = '+'; break;
+                case 0x7B: numkey_on = '-'; numkey_off = '-'; break;
+                case 0x7C: numkey_on = '*'; numkey_off = '*'; break;
             }
             if (numkey_on) {
                 bool effective_numlock = ps2_shift_any ? !ps2_num_lock : ps2_num_lock;
