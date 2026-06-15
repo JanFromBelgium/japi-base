@@ -92,6 +92,14 @@ right side (GP16–GP28) stays completely free for your projects. Build it on a
 breadboard, flash `japi_base.uf2`, and you can see and hear the demo.
 **You need a Raspberry Pi Pico 2!**
 
+Prefer a proper PCB? A revision-A board is ready to order — the
+[hardware folder](hardware/) has the Gerbers, BOM and ordering notes.
+
+![Assembled Japi Base, revision A](hardware/Japi_Base-RevA-assembled.jpg)
+*A finished revision-A board, ready to run. The silkscreen still reads
+GPL-3.0-or-later from before the relicence — Japi Base is now **BSD-3-Clause**
+(see [LICENSE](LICENSE)). Revision B drops the licence line from the board.*
+
 ![Prototype build on perfboard](images/hardware-build.jpg)
 *The prototype on perfboard: Pico 2, VGA DAC, PS/2 level shifter,
 micro-SD adapter and reset button.*
