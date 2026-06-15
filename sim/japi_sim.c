@@ -310,8 +310,18 @@ static void sim_pump(void) {
                     case 4: case 8: base = JAPI_KEY_END;    break;
                     case 5:         base = JAPI_KEY_PGUP;   break;
                     case 6:         base = JAPI_KEY_PGDN;   break;
+                    /* function keys, xterm "ESC[<n>~" form */
+                    case 11: base = JAPI_KEY_F1;  break; case 12: base = JAPI_KEY_F2;  break;
+                    case 13: base = JAPI_KEY_F3;  break; case 14: base = JAPI_KEY_F4;  break;
+                    case 15: base = JAPI_KEY_F5;  break; case 17: base = JAPI_KEY_F6;  break;
+                    case 18: base = JAPI_KEY_F7;  break; case 19: base = JAPI_KEY_F8;  break;
+                    case 20: base = JAPI_KEY_F9;  break; case 21: base = JAPI_KEY_F10; break;
+                    case 23: base = JAPI_KEY_F11; break; case 24: base = JAPI_KEY_F12; break;
                 }
             }
+            /* F1..F4 in the SS3 form "ESC O P/Q/R/S" (sent by xterm/gnome). */
+            if (!base && (final == 'P' || final == 'Q' || final == 'R' || final == 'S'))
+                base = (uint16_t)(JAPI_KEY_F1 + (final - 'P'));
             int mod = (p2 > 0) ? p2 : 1;
             uint16_t code = sim_apply_csi_mod(base, mod);
             if (code) sim_key_push(code);
