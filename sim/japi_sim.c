@@ -402,9 +402,15 @@ static int sim_map_path(const char *p, char *out, int outsz) {
 bool japi_fopen(japi_file_t *f, const char *p, uint8_t m) {
     char path[512];
     if (!sim_map_path(p, path, sizeof path)) { f->type = 0; return false; }
-    const char *mode = (m & JAPI_WRITE)  ? "wb"
-                     : (m & JAPI_APPEND) ? "ab" : "rb";
-    FILE *fp = fopen(path, mode);
+    FILE *fp;
+    if ((m & JAPI_READ) && (m & JAPI_WRITE)) {     /* random read+write */
+        fp = fopen(path, "r+b");                    /* open existing, keep its data */
+        if (!fp) fp = fopen(path, "w+b");           /* else create it */
+    } else {
+        const char *mode = (m & JAPI_WRITE)  ? "wb"
+                         : (m & JAPI_APPEND) ? "ab" : "rb";
+        fp = fopen(path, mode);
+    }
     if (!fp) { f->type = 0; return false; }
     *(FILE **)&f->fat = fp;
     f->type = 1;

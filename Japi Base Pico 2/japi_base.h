@@ -443,6 +443,9 @@ typedef struct {
 #define JAPI_READ    1
 #define JAPI_WRITE   2
 #define JAPI_APPEND  4
+// JAPI_READ | JAPI_WRITE together = random-access (read+write): the file is
+// created if absent and existing data is NOT truncated, so japi_fseek + read/
+// write can update records in place. Use with japi_fseek for record I/O.
 
 bool japi_fopen(japi_file_t *f, const char *path, uint8_t mode);
 int  japi_fread(japi_file_t *f, void *buf, int size);

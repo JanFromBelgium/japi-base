@@ -1538,19 +1538,25 @@ bool japi_fopen(japi_file_t *f, const char *path, uint8_t mode) {
     const char *p = path;
     f->type = japi_parse_drive(&p);
 
+    /* READ and WRITE together = random-access: open for read+write, create the
+       file if absent, and DO NOT truncate existing data (records survive). */
+    bool rw = (mode & JAPI_READ) && (mode & JAPI_WRITE);
+
     if (f->type == FS_SD && ensure_sd_mounted()) {
-        BYTE fa = 0;
-        if (mode & JAPI_READ)    fa |= FA_READ;
-        if (mode & JAPI_WRITE)   fa |= FA_WRITE | FA_CREATE_ALWAYS;
-        if (mode & JAPI_APPEND)  fa |= FA_WRITE | FA_OPEN_APPEND;
+        BYTE fa;
+        if (rw)                       fa = FA_READ | FA_WRITE | FA_OPEN_ALWAYS;
+        else if (mode & JAPI_APPEND)  fa = FA_WRITE | FA_OPEN_APPEND;
+        else if (mode & JAPI_WRITE)   fa = FA_WRITE | FA_CREATE_ALWAYS;
+        else                          fa = FA_READ;
         return f_open(&f->fat, sd_volpath(p), fa) == FR_OK;
     }
 
     if (f->type == FS_LFS && lfs_mounted) {
-        int flags = 0;
-        if (mode & JAPI_READ)    flags = LFS_O_RDONLY;
-        if (mode & JAPI_WRITE)   flags = LFS_O_WRONLY | LFS_O_CREAT | LFS_O_TRUNC;
-        if (mode & JAPI_APPEND)  flags = LFS_O_WRONLY | LFS_O_CREAT | LFS_O_APPEND;
+        int flags;
+        if (rw)                       flags = LFS_O_RDWR  | LFS_O_CREAT;
+        else if (mode & JAPI_APPEND)  flags = LFS_O_WRONLY | LFS_O_CREAT | LFS_O_APPEND;
+        else if (mode & JAPI_WRITE)   flags = LFS_O_WRONLY | LFS_O_CREAT | LFS_O_TRUNC;
+        else                          flags = LFS_O_RDONLY;
         return lfs_file_open(&lfs, &f->lfs, p, flags) == LFS_ERR_OK;
     }
 
