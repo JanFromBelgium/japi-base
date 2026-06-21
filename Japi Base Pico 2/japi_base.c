@@ -1584,6 +1584,18 @@ int japi_fwrite(japi_file_t *f, const void *buf, int size) {
     return -1;
 }
 
+// Random-access seek to byte offset `pos` (0-based). Mirrors the fread/fwrite
+// dispatch: f_lseek on FAT volumes, lfs_file_seek on LittleFS.
+bool japi_fseek(japi_file_t *f, int pos) {
+    if (f->type == FS_SD) {
+        return f_lseek(&f->fat, (FSIZE_t)pos) == FR_OK;
+    }
+    if (f->type == FS_LFS) {
+        return lfs_file_seek(&lfs, &f->lfs, (lfs_soff_t)pos, LFS_SEEK_SET) >= 0;
+    }
+    return false;
+}
+
 void japi_fclose(japi_file_t *f) {
     if (f->type == FS_SD)  f_close(&f->fat);
     if (f->type == FS_LFS) lfs_file_close(&lfs, &f->lfs);

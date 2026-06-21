@@ -452,6 +452,13 @@ bool japi_remove(const char *path);
 bool japi_mkdir(const char *path);
 bool japi_exists(const char *path);
 int  japi_fsize(japi_file_t *f);
+// Move the read/write position of an open file to byte offset `pos` (0-based,
+// SEEK_SET). Wraps FatFs f_lseek / LittleFS lfs_file_seek (both present in this
+// build), so it enables random-access -- and thus record-based -- file I/O from
+// BASIC (a record is just pos = (record_no - 1) * record_len). A plain
+// synchronous file operation: it does not touch the timing-critical VGA or
+// keyboard paths. Returns true on success.
+bool japi_fseek(japi_file_t *f, int pos);
 
 /* Directory listing — opaque handle, walks entries one by one. The
    backend (FatFs on FAT volumes, lfs on LittleFS) decides internals.

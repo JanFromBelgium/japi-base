@@ -456,6 +456,13 @@ int japi_fsize(japi_file_t *f) {
     return (int)sz;
 }
 
+/* Random-access seek to byte offset `pos` (0-based, SEEK_SET). Host stdio
+   mirror of the Pico f_lseek/lfs_file_seek path. */
+bool japi_fseek(japi_file_t *f, int pos) {
+    if (f->type != 1) return false;
+    return fseek(*(FILE **)&f->fat, (long)pos, SEEK_SET) == 0;
+}
+
 bool japi_opendir(japi_dir_t *d, const char *p) {
     char path[512];
     if (!sim_map_path(p, path, sizeof path)) { d->type = 0; return false; }
