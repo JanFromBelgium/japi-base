@@ -1687,6 +1687,40 @@ bool japi_mkdir(const char *path) {
     return false;
 }
 
+// Rename/move a file or directory. Both backends can only rename WITHIN one
+// volume, so a cross-drive request (A:<->C:) returns false -- the caller must
+// copy then delete instead. f_rename works on a non-empty directory too.
+bool japi_rename(const char *from, const char *to) {
+    const char *pf = from, *pt = to;
+    uint8_t df = japi_parse_drive(&pf);
+    uint8_t dt = japi_parse_drive(&pt);
+    if (df == FS_NONE || df != dt) return false;   // same volume only
+    if (df == FS_SD && ensure_sd_mounted()) {
+        // sd_volpath() returns one shared static buffer, so it cannot be called
+        // twice in one expression -- build both volume paths in local buffers.
+        char a[JAPI_PATH_MAX + 4], b[JAPI_PATH_MAX + 4];
+        snprintf(a, sizeof a, "0:%s", pf);
+        snprintf(b, sizeof b, "0:%s", pt);
+        return f_rename(a, b) == FR_OK;
+    }
+    if (df == FS_LFS && lfs_mounted)
+        return lfs_rename(&lfs, pf, pt) == LFS_ERR_OK;
+    return false;
+}
+
+// Remove an EMPTY directory (fails on a non-empty one). Same primitive as
+// japi_remove; kept separate so the intent is explicit and BASIC RMDIR stays
+// strict (recursive deletion is the caller's job).
+bool japi_rmdir(const char *path) {
+    const char *p = path;
+    uint8_t drv = japi_parse_drive(&p);
+    if (drv == FS_SD && ensure_sd_mounted())
+        return f_unlink(sd_volpath(p)) == FR_OK;
+    if (drv == FS_LFS && lfs_mounted)
+        return lfs_remove(&lfs, p) == LFS_ERR_OK;
+    return false;
+}
+
 bool japi_exists(const char *path) {
     const char *p = path;
     uint8_t drv = japi_parse_drive(&p);

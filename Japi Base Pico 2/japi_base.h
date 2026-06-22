@@ -471,6 +471,11 @@ void japi_fclose(japi_file_t *f);
 bool japi_remove(const char *path);
 bool japi_mkdir(const char *path);
 bool japi_exists(const char *path);
+// Rename/move a file or directory WITHIN one drive (false on a cross-drive
+// request -- copy+delete then). Works on a non-empty directory.
+bool japi_rename(const char *from, const char *to);
+// Remove an EMPTY directory (false on a non-empty one).
+bool japi_rmdir(const char *path);
 int  japi_fsize(japi_file_t *f);
 // Move the read/write position of an open file to byte offset `pos` (0-based,
 // SEEK_SET). Wraps FatFs f_lseek / LittleFS lfs_file_seek (both present in this

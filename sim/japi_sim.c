@@ -449,6 +449,17 @@ bool japi_mkdir(const char *p) {
     return sim_map_path(p, path, sizeof path) && mkdir(path, 0777) == 0;
 }
 
+bool japi_rename(const char *from, const char *to) {
+    char a[512], b[512];
+    if (!sim_map_path(from, a, sizeof a) || !sim_map_path(to, b, sizeof b)) return false;
+    return rename(a, b) == 0;
+}
+
+bool japi_rmdir(const char *p) {
+    char path[512];
+    return sim_map_path(p, path, sizeof path) && rmdir(path) == 0;
+}
+
 /* --- CPU clock (host stubs: there is no overclock or reboot on a PC) --- */
 int  japi_get_cpu_clock_mhz(void) { return 324; }      /* pretend the default tier */
 bool japi_set_cpu_clock(int mhz)  { (void)mhz; return false; }  /* no-op, no reboot */
