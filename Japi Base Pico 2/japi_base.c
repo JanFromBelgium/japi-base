@@ -630,7 +630,12 @@ static void __not_in_flash_func(vga_dma_handler)(void) {
         if (ps2_extended && sc == 0x2F) { ps2_menu  = true; ps2_extended = false; continue; }
 
         if (sc == 0x58) { ps2_caps_lock = !ps2_caps_lock; kbd_push(JAPI_KEY_CAPS_LOCK); continue; }
-        if (sc == 0x77) { ps2_num_lock  = !ps2_num_lock;  kbd_push(JAPI_KEY_NUM_LOCK);  continue; }
+        /* NumLock is an application event (JapiBaseComputer toggles the calculator
+           with it). It deliberately does NOT flip ps2_num_lock, so the numpad
+           stays in digit mode -- otherwise toggling the calc would also flip the
+           numpad to navigation and the digits would stop working. Numpad
+           navigation is still reachable with Shift+numpad (the shift-invert below). */
+        if (sc == 0x77) { kbd_push(JAPI_KEY_NUM_LOCK);  continue; }
         if (sc == 0x7E) { ps2_scroll_lock = !ps2_scroll_lock; kbd_push(JAPI_KEY_SCROLL_LOCK); continue; }
 
         if (ps2_extended) {
